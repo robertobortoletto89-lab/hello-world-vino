@@ -67,12 +67,63 @@ else:
     # Filtriamo il database SOLO per il prodotto scelto
     df_filtrato = df[df['Prodotto'] == prodotto_selezionato].copy()
     
-    # --- 4. SEZIONE: ULTIMO PREZZO RILEVATO ---
+# --- 4. SEZIONE: ULTIMO PREZZO RILEVATO ---
     st.subheader("Ultimo Prezzo Rilevato")
     st.write(f"**{prodotto_selezionato}**")
     
-    # Troviamo l'ultimo dato in ordine cronologico per ogni sito
-    df_ultimi_prezzi = df_filtrato.sort_values('Data').groupby('Sito').tail(1)
-    
-    # Creiamo le "Card" in modo dinamico a seconda di quanti siti abbiamo
-    colonne_metriche = st.columns(len(df_ultimi_prezzi))
+    try:
+        # Troviamo l'ultimo dato in ordine cronologico per ogni sito
+        df_ultimi_prezzi = df_filtrato.sort_values('Data').groupby('Sito').tail(1)
+        
+        # Sicurezza: creiamo le colonne SOLO se ci sono dati
+        if len(df_ultimi_prezzi) > 0:
+            colonne_metriche = st.columns(len(df_ultimi_prezzi))
+            
+            for indice, (index, riga) in enumerate(df_ultimi_prezzi.iterrows()):
+                con_colonna = colonne_metriche[indice]
+                
+                # Gestione sicura della data (se per caso una cella è vuota o rotta)
+                if pd.notnull(riga.get('Data')):
+                    data_formattata = riga['Data'].strftime("%d/%m %H:%M")
+                else:
+                    data_formattata = "Data N/D"
+                    
+                con_colonna.metric(
+                    label=f"🏢 {riga.get('Sito', 'Sconosciuto')}", 
+                    value=f"{riga.get('Prezzo', 0):.2f} €", 
+                    delta=f"Agg. {data_formattata}",
+                    delta_color="off"
+                )
+        else:
+            st.warning("Nessun dato valido da mostrare per le metriche.")
+
+        st.divider()
+
+        # --- 5. SEZIONE: ANDAMENTO STORICO (GRAFICO A LINEE) ---
+        st.subheader("📈 Andamento Storico del Prezzo")
+        
+        if len(df_filtrato['Data'].unique()) < 2:
+            st.info("💡 Il grafico storico si popolerà automaticamente non appena il bot raccoglierà dati in giorni diversi.")
+        
+        if not df_filtrato.empty:
+            fig = px.line(
+                df_filtrato, 
+                x="Data", 
+                y="Prezzo", 
+                color="Sito", 
+                markers=True,
+                title="Fluttuazione Prezzi nel Tempo",
+                labels={"Data": "Data di Rilevazione", "Prezzo": "Prezzo di Vendita (€)"},
+                template="plotly_white"
+            )
+            fig.update_layout(yaxis_tickformat='.2f')
+            st.plotly_chart(fig, use_container_width=True)
+        
+        with st.expander("👁️ Vedi tutti i dati grezzi estratti"):
+            st.dataframe(df_filtrato.sort_values('Data', ascending=False))
+            
+    except Exception as e:
+        # SE QUALCOSA SI ROMPE, ORA CI DIRÀ ESATTAMENTE COSA!
+        st.error(f"❌ Errore nella generazione dei grafici: {e}")
+        st.write("Ecco i dati che Python sta cercando di leggere (controlla se mancano colonne o ci sono anomalie):")
+        st.dataframe(df_filtrato)
