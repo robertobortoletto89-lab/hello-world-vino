@@ -34,7 +34,14 @@ def carica_dati():
         # Assicuriamoci che la data sia compresa correttamente da Python
         if not df.empty:
             df['Data'] = pd.to_datetime(df['Data'], format="%d/%m/%Y %H:%M")
-            df['Prezzo'] = pd.to_numeric(df['Prezzo'])
+            # 1. Convertiamo in testo per sicurezza
+df['Prezzo'] = df['Prezzo'].astype(str)
+# 2. Togliamo eventuali simboli € e spazi invisibili
+df['Prezzo'] = df['Prezzo'].str.replace('€', '', regex=False).str.strip()
+# 3. Trasformiamo la virgola italiana nel punto americano
+df['Prezzo'] = df['Prezzo'].str.replace(',', '.', regex=False)
+# 4. Ora convertiamo in numero in modo sicuro!
+df['Prezzo'] = pd.to_numeric(df['Prezzo'])
             
         return df
     except Exception as e:
