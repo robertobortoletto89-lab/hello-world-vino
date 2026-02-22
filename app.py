@@ -32,6 +32,11 @@ def carica_dati():
         # Convertiamo in DataFrame Pandas
         df = pd.DataFrame(dati)
         
+        # --- FILTRO MAGICO: ELIMINIAMO LE RIGHE FANTASMA ---
+        # Se la colonna 'Prodotto' è vuota, scartiamo l'intera riga!
+        if not df.empty:
+            df = df[df['Prodotto'].astype(str).str.strip() != '']
+        
         # Pulizia e conversione sicura dei dati
         if not df.empty:
             df['Data'] = pd.to_datetime(df['Data'], format="%d/%m/%Y %H:%M")
