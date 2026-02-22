@@ -70,4 +70,4 @@ else:
     df_ultimi_prezzi = df_filtrato.sort_values('Data').groupby('Sito').tail(1)
     
     # Creiamo le "Card" in modo dinamico a seconda di quanti siti abbiamo
-    colonne_metriche = st.columns(len(df_
+    colonne_metriche = st.columns(len(df_ultimi_prezzi))
