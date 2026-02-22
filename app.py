@@ -19,14 +19,14 @@ st.markdown("""
         font-family: 'Inter', sans-serif;
     }
     
-    /* Trasforma le metriche in "Card" in stile SaaS */
-    div[data-testid="metric-container"] {
+/* Trasforma le metriche in "Card" in stile SaaS */
+    [data-testid="stMetric"], [data-testid="metric-container"] {
         background-color: #ffffff;
         border: 1px solid #e6e8eb;
-        padding: 20px;
+        padding: 15px 20px;
         border-radius: 8px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
-        border-left: 5px solid #8b0000; /* Colore rosso scuro elegante */
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        border-left: 5px solid #8b0000; /* Colore rosso scuro aziendale Villa Sandi */
     }
     
     /* Stile per i Tab */
