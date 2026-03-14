@@ -99,6 +99,80 @@ def estrai_prezzo_tannico(url):
         print(f"Errore critico durante lo scraping: {e}")
         return None
 
+def estrai_prezzo_vinocom(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        price_tag = soup.find('span', class_='watc-sale-price') or soup.find(itemprop='price')
+        if price_tag:
+            prezzo_grezzo = price_tag.get('content') or price_tag.get_text()
+            prezzo_str = str(prezzo_grezzo).replace('€', '').replace(',', '.').strip()
+            return float(prezzo_str)
+        return None
+    except Exception:
+        return None
+
+def estrai_prezzo_callmewine(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        if "non disponibile" in soup.get_text().lower():
+            return 0.0
+        integer = soup.find(class_='c-finalPrice__integer')
+        decimal = soup.find(class_='c-finalPrice__decimal')
+        if integer and decimal:
+            prezzo_str = f"{integer.get_text().strip()}.{decimal.get_text().strip()}"
+            return float(prezzo_str)
+        return None
+    except Exception:
+        return None
+
+def estrai_prezzo_xtrawine(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        price_tag = soup.find('span', class_='notranslate ht-money')
+        if price_tag:
+            prezzo_str = price_tag.get_text().replace('€', '').replace(' ', '').replace(',', '.').strip()
+            return float(prezzo_str)
+        return None
+    except Exception:
+        return None
+
+def estrai_prezzo_bernabei(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        price_tag = soup.find('span', {'itemprop': 'price'})
+        if price_tag:
+            prezzo_str = price_tag.get_text().replace('\xa0', '').replace('€', '').replace(' ', '').replace(',', '.').strip()
+            return float(prezzo_str)
+        return None
+    except Exception:
+        return None
+
+def estrai_prezzo_vivino(url):
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36'}
+    try:
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        soup = BeautifulSoup(response.text, 'html.parser')
+        price_tag = soup.find('span', class_=re.compile('purchaseAvailability__currentPrice'))
+        if price_tag:
+            prezzo_str = price_tag.get_text().replace('\xa0', '').replace('€', '').replace(' ', '').replace(',', '.').strip()
+            return float(prezzo_str)
+        return None
+    except Exception:
+        return None
+
 if __name__ == "__main__":
     import pandas as pd
 
@@ -107,32 +181,45 @@ if __name__ == "__main__":
 
     # Itera su tutte le righe del file
     for index, row in df.iterrows():
-        # Controllo case-insensitive per il sito e-commerce "Tannico"
-        if str(row['SITO_ECOMMERCE']).strip().lower() == 'tannico':
-            url = row['LINK']
-            try:
-                # Estrazione del prezzo
+        sito = str(row['SITO_ECOMMERCE']).strip().lower()
+        url = row['LINK']
+        
+        try:
+            # Logica di routing basata sul nome del sito
+            if sito == 'tannico':
                 prezzo = estrai_prezzo_tannico(url)
+            elif sito == 'vino.com':
+                prezzo = estrai_prezzo_vinocom(url)
+            elif sito == 'callmewine':
+                prezzo = estrai_prezzo_callmewine(url)
+            elif sito == 'xtrawine':
+                prezzo = estrai_prezzo_xtrawine(url)
+            elif sito == 'bernabei':
+                prezzo = estrai_prezzo_bernabei(url)
+            elif sito == 'vivino':
+                prezzo = estrai_prezzo_vivino(url)
+            else:
+                continue
+            
+            if prezzo is not None:
+                # Formatta il prezzo con la virgola (es. 12,50)
+                prezzo_formattato = f"{prezzo:.2f}".replace('.', ',')
+                print(f"{row['CANTINA']} - {row['VINO']} su {row['SITO_ECOMMERCE']}: {prezzo_formattato} €")
                 
-                if prezzo is not None:
-                    # Formatta il prezzo con la virgola (es. 12,50)
-                    prezzo_formattato = f"{prezzo:.2f}".replace('.', ',')
-                    print(f"{row['CANTINA']} - {row['VINO']} su {row['SITO_ECOMMERCE']}: {prezzo_formattato} €")
+                # Salva il dato nello storico (CSV)
+                file_storico = 'storico_prezzi.csv'
+                file_nuovo = not os.path.exists(file_storico) or os.path.getsize(file_storico) == 0
+                
+                with open(file_storico, mode='a', newline='', encoding='utf-8') as f:
+                    writer = csv.writer(f)
+                    if file_nuovo:
+                        writer.writerow(['Data', 'Cantina', 'Vino', 'Sito', 'Prezzo'])
                     
-                    # Salva il dato nello storico (CSV)
-                    file_storico = 'storico_prezzi.csv'
-                    file_nuovo = not os.path.exists(file_storico) or os.path.getsize(file_storico) == 0
-                    
-                    with open(file_storico, mode='a', newline='', encoding='utf-8') as f:
-                        writer = csv.writer(f)
-                        if file_nuovo:
-                            writer.writerow(['Data', 'Cantina', 'Vino', 'Sito', 'Prezzo'])
-                        
-                        data_oggi = datetime.now().strftime('%Y-%m-%d')
-                        writer.writerow([data_oggi, row['CANTINA'], row['VINO'], row['SITO_ECOMMERCE'], prezzo])
-                else:
-                    # Se non è possibile estrarre il prezzo
-                    print(f"{row['CANTINA']} - {row['VINO']} su {row['SITO_ECOMMERCE']}: Prezzo non disponibile.")
-            except Exception as e:
-                # Gestione errore specifica per la riga affinché il loop continui
-                print(f"Errore nell'estrazione per {row['VINO']}: {e}")
+                    data_oggi = datetime.now().strftime('%Y-%m-%d')
+                    writer.writerow([data_oggi, row['CANTINA'], row['VINO'], row['SITO_ECOMMERCE'], prezzo])
+            else:
+                # Se non è possibile estrarre il prezzo
+                print(f"{row['CANTINA']} - {row['VINO']} su {row['SITO_ECOMMERCE']}: Prezzo non disponibile.")
+        except Exception as e:
+            # Gestione errore specifica per la riga affinché il loop continui
+            print(f"Errore nell'estrazione per {row['VINO']} su {row['SITO_ECOMMERCE']}: {e}")

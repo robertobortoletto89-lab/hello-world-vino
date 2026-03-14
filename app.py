@@ -1,240 +1,329 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
-import gspread
-import json
 from datetime import datetime
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(
-    page_title="Villa Sandi | Price Intelligence",
+    page_title="Price Intelligence Analysis",
     page_icon="🍷",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- STILE CUSTOM (Corporate Villa Sandi) ---
+# --- STILE CUSTOM (Bento Grid) ---
 st.markdown("""
     <style>
-    .main {
-        background-color: #f9f9f9;
-    }
-    .stMetric {
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
         background-color: #ffffff;
-        padding: 15px;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     }
-    h1, h2, h3 {
-        color: #8b0000 !important;
+
+    .main {
+        background-color: #ffffff;
     }
-    .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
-        font-size: 1.1rem;
+
+    /* Bento Box Style */
+    .bento-card {
+        background-color: #f8f9fa;
+        border-radius: 16px;
+        padding: 24px;
+        border: 1px solid #f1f3f5;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+    }
+
+    .kpi-label {
+        color: #6c757d;
+        font-size: 0.85rem;
         font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
+    }
+
+    .kpi-value {
+        color: #212529;
+        font-size: 1.8rem;
+        font-weight: 700;
+    }
+
+    .kpi-delta {
+        font-size: 0.9rem;
+        margin-top: 4px;
+    }
+
+    /* Header Style */
+    .header-title {
+        font-weight: 700;
+        color: #1a1a1a;
+        margin-bottom: 2rem;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# --- COSTANTI ---
-COLOR_CORPORATE = "#8b0000"
-LINK_FOGLIO = "https://docs.google.com/spreadsheets/d/1mM998ELdz5WezKjdn93QgeO8IpA6JGIYeU-JtxflLmU/edit?gid=490813682#gid=490813682"
-
-# --- FUNZIONI MODULARI ---
+# --- FUNZIONI CARICAMENTO DATI ---
 
 @st.cache_data(ttl=600)
 def carica_dati():
-    """Carica i dati da Google Sheets o mock se fallisce."""
     try:
-        if "google_credentials" in st.secrets:
-            credenziali = json.loads(st.secrets["google_credentials"])
-            gc = gspread.service_account_from_dict(credenziali)
-        else:
-            gc = gspread.service_account(filename='credenziali.json')
-            
-        sh = gc.open_by_url(LINK_FOGLIO)
-        worksheet = sh.worksheet("Prezzi")
-        df = pd.DataFrame(worksheet.get_all_records())
+        # Carica database vini per dettagli (Base Price, Image, etc.)
+        try:
+            df_vini = pd.read_csv('database_vini.csv', sep=';')
+        except:
+            df_vini = pd.read_csv('database_vini.csv', sep=',')
         
-        # Pulizia dati
-        if not df.empty:
-            # Assicuriamoci che le colonne esistano
-            df = df[df['Prodotto'].astype(str).str.strip() != '']
-            df['Data'] = pd.to_datetime(df['Data'], format="%d/%m/%Y %H:%M", errors='coerce')
+        # Pulizia nomi colonne
+        df_vini.columns = df_vini.columns.str.strip()
+        
+        # PREZZO_BASE forced to float
+        if 'PREZZO_BASE' in df_vini.columns:
+            df_vini['PREZZO_BASE'] = pd.to_numeric(
+                df_vini['PREZZO_BASE'].astype(str).str.replace(',', '.'), 
+                errors='coerce'
+            ).fillna(0)
+        
+        # Drop duplicates in df_vini to avoid fan-out
+        df_vini_unique = df_vini.drop_duplicates(subset=['VINO']).copy()
+
+        # Carica storico prezzi
+        try:
+            df_prezzi = pd.read_csv('storico_prezzi.csv', sep=',')
+        except:
+            df_prezzi = pd.read_csv('storico_prezzi.csv', sep=';')
+        
+        # Pulizia nomi colonne
+        df_prezzi.columns = df_prezzi.columns.str.strip()
             
-            # Conversione prezzi (gestione virgola/punto)
-            for col in ['Prezzo', 'Prezzo_Base']:
-                if col in df.columns:
-                    df[col] = df[col].astype(str).str.replace('€', '', regex=False)
-                    df[col] = df[col].str.replace(',', '.', regex=False).str.strip()
-                    df[col] = pd.to_numeric(df[col], errors='coerce')
-            
-            return df
+        df_prezzi['Data'] = pd.to_datetime(df_prezzi['Data'], errors='coerce')
+        
+        # Rinomina colonne per facilitare merge se necessario (o usa nomi originali)
+        # Assumiamo storico_prezzi abbia 'Vino' e 'Sito'
+        
+        # Merge
+        df = pd.merge(
+            df_prezzi, 
+            df_vini_unique[['VINO', 'IMM_URL', 'PREZZO_BASE', 'DESCRIZIONE']], 
+            left_on='Vino', 
+            right_on='VINO', 
+            how='left'
+        )
+        
+        # Converti prezzi a numerici
+        df['Prezzo'] = pd.to_numeric(df['Prezzo'].astype(str).str.replace(',', '.'), errors='coerce')
+        
+        return df
     except Exception as e:
         st.error(f"Errore caricamento dati: {e}")
         return pd.DataFrame()
 
 def format_euro(valore):
-    """Formatta i numeri in formato europeo (1.234,56 €)."""
-    if pd.isna(valore): return "N/D"
-    return f"{valore:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") + " €"
+    if pd.isna(valore) or valore == 0: return "N/D"
+    return f"€ {valore:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
-# --- LOGICA APPLICATIVA ---
+# --- UI COMPONENTS ---
+
+def bento_metric(label, value, delta=None, delta_color="normal"):
+    delta_html = ""
+    if delta:
+        color = "#28a745" if delta_color == "normal" else "#dc3545"
+        delta_html = f'<div class="kpi-delta" style="color: {color};">{delta}</div>'
+    
+    st.markdown(f"""
+        <div class="bento-card">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{value}</div>
+            {delta_html}
+        </div>
+    """, unsafe_allow_html=True)
+
+# --- MAIN APP ---
 
 def main():
-    # Intestazione Corporate
-    st.markdown(f"# :material/monitoring: Price Intelligence Analysis for Villa Sandi")
-    st.caption("Piattaforma B2B di Monitoraggio e Sentiment Analysis")
-    
     df_raw = carica_dati()
     
     if df_raw.empty:
-        st.warning("In attesa di dati dal database...")
+        st.warning("Nessun dato trovato nei file CSV.")
         return
 
-    # --- SIDEBAR FILTRI ---
-    st.sidebar.header("Filtri di Analisi")
+    # Sidebar
+    st.sidebar.header("🔍 Filtri di Analisi")
     
-    prodotti = sorted(df_raw['Prodotto'].unique())
-    prodotto_scelto = st.sidebar.selectbox("🎯 Seleziona Prodotto", prodotti)
+    # Gestione nomi colonne dinamici (Sito vs SITO E-COMMERCE)
+    col_sito = 'Sito' if 'Sito' in df_raw.columns else 'SITO_ECOMMERCE'
+    if col_sito not in df_raw.columns:
+        # Cerca varianti
+        for c in df_raw.columns:
+            if 'SITO' in c.upper():
+                col_sito = c
+                break
+
+    cantine = sorted(df_raw['Cantina'].dropna().unique())
+    cantina_scelta = st.sidebar.selectbox("Seleziona Cantina", cantine)
+    
+    df_cantina = df_raw[df_raw['Cantina'] == cantina_scelta].copy()
+    
+    vini = sorted(df_cantina['Vino'].unique())
+    vino_scelto = st.sidebar.selectbox("Seleziona Bottiglia", vini, index=0)
     
     # Filtro Date
-    min_date = df_raw['Data'].min().date() if not df_raw['Data'].isnull().all() else datetime.now().date()
-    max_date = df_raw['Data'].max().date() if not df_raw['Data'].isnull().all() else datetime.now().date()
+    min_date = df_cantina['Data'].min()
+    max_date = df_cantina['Data'].max()
+    
+    if pd.isna(min_date): min_date = datetime.now()
+    if pd.isna(max_date): max_date = datetime.now()
     
     date_range = st.sidebar.date_input(
-        "📅 Periodo di Analisi",
-        value=(min_date, max_date),
-        min_value=min_date,
-        max_value=max_date,
-        format="DD/MM/YYYY"
+        "Periodo DA - A",
+        value=(min_date.date(), max_date.date()),
+        min_value=min_date.date(),
+        max_value=max_date.date()
     )
 
-    # Applicazione Filtri
-    df_f = df_raw[df_raw['Prodotto'] == prodotto_scelto].copy()
-    if len(date_range) == 2:
+    # Intestazione
+    st.markdown(f'<h1 class="header-title">Price Intelligence: {vino_scelto}</h1>', unsafe_allow_html=True)
+
+    # Applica filtri
+    df_f = df_cantina[df_cantina['Vino'] == vino_scelto].copy()
+    if isinstance(date_range, tuple) and len(date_range) == 2:
         df_f = df_f[(df_f['Data'].dt.date >= date_range[0]) & (df_f['Data'].dt.date <= date_range[1])]
 
     if df_f.empty:
         st.info("Nessun dato disponibile per i filtri selezionati.")
         return
 
-    # --- SEZIONE TOP (Ancoraggio Visivo) ---
+    # --- TOP SECTION (Bento Grid) ---
+    col_main, col_kpi1, col_kpi2, col_kpi3 = st.columns([2.5, 1, 1, 1])
+    
     ultimo_dato = df_f.sort_values('Data').iloc[-1]
+    prezzo_base = ultimo_dato.get('PREZZO_BASE', 0)
+    prezzo_medio = df_f['Prezzo'].mean()
+    devianza = ((prezzo_medio - prezzo_base) / prezzo_base * 100) if prezzo_base and prezzo_base != 0 else 0
+
+    with col_main:
+        # Box rettangolare con Immagine e Dettagli
+        img_url = ultimo_dato.get('IMM_URL', 'https://via.placeholder.com/150?text=No+Image')
+        if pd.isna(img_url): img_url = 'https://via.placeholder.com/150?text=No+Image'
+        
+        st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+        inner_img, inner_txt = st.columns([1, 2.5])
+        with inner_img:
+            st.image(img_url, use_container_width=True)
+        with inner_txt:
+            st.markdown(f"""
+                <div style="margin-top: 10px;">
+                    <div style="color: #6c757d; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">{cantina_scelta}</div>
+                    <div style="font-weight: 700; font-size: 1.4rem; margin-bottom: 8px; color: #1a1a1a;">{vino_scelto}</div>
+                    <div style="color: #495057; font-size: 1rem; margin-bottom: 4px;">Formato: 750ml</div>
+                    <div style="color: #495057; font-size: 1rem;">Prezzo Base: <b>{format_euro(prezzo_base)}</b></div>
+                </div>
+            """, unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_kpi1:
+        bento_metric("Prezzo Base", format_euro(prezzo_base))
     
-    col_img, col_info = st.columns([1, 3])
+    with col_kpi2:
+        bento_metric("Prezzo Medio", format_euro(prezzo_medio))
+        
+    with col_kpi3:
+        # Se il prezzo medio è sotto il base, devianza negativa (rosso)
+        color = "normal" if devianza >= 0 else "inverse"
+        bento_metric("Devianza %", f"{devianza:+.1f}%", delta_color=color)
+
+    st.write("") # Spacer
+
+    # --- MAIN GRAPH ---
+    st.markdown('<div class="bento-card" style="padding: 20px;">', unsafe_allow_html=True)
     
-    with col_img:
-        img_url = ultimo_dato.get('Immagine_URL', '')
-        if img_url:
-            st.image(img_url, width=200)
-        else:
-            st.info("Immagine non disponibile")
-            
-    with col_info:
-        st.subheader(prodotto_scelto)
-        st.write(f"**Descrizione:** {ultimo_dato.get('Descrizione', 'N/D')}")
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Prezzo Listino (Base)", format_euro(ultimo_dato.get('Prezzo_Base', 0)))
-        c2.metric("Ultima Rilevazione", ultimo_dato['Data'].strftime("%d/%m/%Y"))
-        c3.write(f"**Formato:** Standard 750ml") # Esempio, se non in DB
-        
-    st.divider()
+    df_plot = df_f.copy()
+    df_plot['Data_Str'] = df_plot['Data'].dt.strftime('%d/%m')
+    df_plot = df_plot.sort_values('Data')
 
-    # --- TABS ---
-    tab1, tab2 = st.tabs([":material/payments: Price Intelligence", ":material/forum: Sentiment Analysis"])
+    # Barre rosse solo quando Prezzo < PREZZO_BASE
+    df_plot['Colore'] = df_plot['Prezzo'].apply(lambda x: '#dc3545' if x < prezzo_base else '#4a90e2')
 
-    with tab1:
-        # 1. Grafico Principale
-        st.subheader("Andamento Prezzi vs Listino")
+    fig = go.Figure()
+
+    # Marketplace dinamici
+    for sito in df_plot[col_sito].unique():
+        df_sito = df_plot[df_plot[col_sito] == sito]
+        fig.add_trace(go.Bar(
+            x=df_sito['Data_Str'],
+            y=df_sito['Prezzo'],
+            name=str(sito),
+            marker_color=df_sito['Colore'],
+            hovertemplate="<b>%{fullData.name}</b><br>Prezzo: €%{y:.2f}<br>Data: %{x}<extra></extra>"
+        ))
+
+    # Linea orizzontale Prezzo Base
+    fig.add_hline(
+        y=prezzo_base, 
+        line_dash="dash", 
+        line_color="#333", 
+        annotation_text=f"Prezzo Base ({format_euro(prezzo_base)})", 
+        annotation_position="top left"
+    )
+
+    fig.update_layout(
+        title="Andamento Prezzi per Marketplace (Barre Rosse = Sottocosto)",
+        xaxis_title="",
+        yaxis_title="Prezzo (€)",
+        yaxis_range=[0, max(df_plot['Prezzo'].max(), prezzo_base) * 1.2],
+        barmode='group',
+        template="plotly_white",
+        height=450,
+        margin=dict(l=20, r=20, t=60, b=20),
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.write("") # Spacer
+
+    # --- BOTTOM SECTION ---
+    col_scostamento, col_wos = st.columns([1, 1])
+
+    with col_scostamento:
+        # % combinazioni dove prezzo < listino
+        totale_combinazioni = len(df_f)
+        sottocosto = len(df_f[df_f['Prezzo'] < prezzo_base])
+        perc_scostamento = (sottocosto / totale_combinazioni * 100) if totale_combinazioni > 0 else 0
+        delta_assoluto = (prezzo_medio - prezzo_base)
         
-        fig = px.line(
-            df_f, x="Data", y="Prezzo", color="Sito",
-            markers=True, line_shape="linear",
-            color_discrete_sequence=px.colors.qualitative.Prism
+        st.markdown(f"""
+            <div class="bento-card">
+                <div class="kpi-label">% SCOSTAMENTO (SOTTOCOSTO)</div>
+                <div class="kpi-value">{perc_scostamento:.1f}%</div>
+                <div class="kpi-delta" style="color: {'#dc3545' if delta_assoluto < 0 else '#28a745'};">
+                    Delta Medio: {format_euro(delta_assoluto)}
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+
+    with col_wos:
+        st.markdown('<div class="bento-card">', unsafe_allow_html=True)
+        st.markdown('<div class="kpi-label">🚩 Wall of Shame (Incidenza Sottocosto)</div>', unsafe_allow_html=True)
+        
+        # Tabella ordinata decrescente per scostamento
+        wos = df_f.groupby(col_sito).apply(
+            lambda x: (x['Prezzo'] < prezzo_base).mean() * 100
+        ).reset_index()
+        wos.columns = ['Marketplace', '% Sottocosto']
+        wos = wos.sort_values('% Sottocosto', ascending=False)
+        
+        st.dataframe(
+            wos.style.format({'% Sottocosto': '{:.1f}%'}),
+            hide_index=True,
+            use_container_width=True
         )
-        
-        # Linea Prezzo Base
-        prezzo_base = ultimo_dato.get('Prezzo_Base', 0)
-        fig.add_hline(
-            y=prezzo_base, 
-            line_dash="dash", 
-            line_color="black", 
-            annotation_text="Prezzo Base", 
-            annotation_position="top left"
-        )
-        
-        fig.update_layout(
-            hovermode="x unified",
-            yaxis_title="Prezzo (€)",
-            xaxis_title="Data Rilevazione",
-            legend_title="Marketplace",
-            template="plotly_white"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-        # 2. KPI Devianza
-        col_kpi1, col_kpi2 = st.columns([1, 2])
-        
-        with col_kpi1:
-            totale_rilevazioni = len(df_f)
-            sottocosto = len(df_f[df_f['Prezzo'] < df_f['Prezzo_Base']])
-            perc_sottocosto = (sottocosto / totale_rilevazioni * 100) if totale_rilevazioni > 0 else 0
-            
-            st.metric(
-                label="Devianza Sottocosto", 
-                value=f"{perc_sottocosto:.1f}%",
-                delta=f"{sottocosto} su {totale_rilevazioni} rilevazioni",
-                delta_color="inverse"
-            )
-            st.caption(f"Percentuale di rilevazioni con prezzo inferiore a {format_euro(prezzo_base)}")
-
-        with col_kpi2:
-            # 3. Wall of Shame
-            st.markdown("#### 🚩 Wall of Shame (Top Price Violators)")
-            
-            # Calcolo % sottocosto per sito
-            wos = df_f.groupby('Sito').apply(
-                lambda x: (x['Prezzo'] < x['Prezzo_Base']).mean() * 100
-            ).reset_index()
-            wos.columns = ['Sito', '% Sottocosto']
-            wos = wos.sort_values('% Sottocosto', ascending=False)
-            
-            st.table(wos.style.format({'% Sottocosto': '{:.1f}%'}))
-
-    with tab2:
-        st.subheader("Customer Sentiment Analysis")
-        st.info("Analisi basata su recensioni estratte da marketplace e social media.")
-        
-        col_s1, col_s2, col_s3 = st.columns(3)
-        col_s1.metric("Totale Recensioni", "1.240", "+12% questo mese")
-        col_s2.metric("Positive", "88%", "🟢 Altissimo", delta_color="normal")
-        col_s3.metric("Negative", "12%", "🔴 Monitorare", delta_color="inverse")
-        
-        c_left, c_right = st.columns(2)
-        
-        with c_left:
-            st.markdown("##### Parole Chiave Recorrenti")
-            # Mock Data per Bar Chart Parole
-            mock_words = pd.DataFrame({
-                'Parola': ['Qualità', 'Eleganza', 'Prezzo', 'Spedizione', 'Perlage', 'Servizio'],
-                'Frequenza': [85, 70, 45, 30, 25, 10],
-                'Sentiment': ['Positivo', 'Positivo', 'Neutro', 'Negativo', 'Positivo', 'Negativo']
-            })
-            fig_words = px.bar(
-                mock_words, x='Frequenza', y='Parola', color='Sentiment',
-                orientation='h', color_discrete_map={'Positivo': '#2ecc71', 'Negativo': '#e74c3c', 'Neutro': '#95a5a6'}
-            )
-            st.plotly_chart(fig_words, use_container_width=True)
-            
-        with c_right:
-            st.markdown("##### Net Sentiment Over Time")
-            # Mock Data per Line Chart Sentiment
-            mock_dates = pd.date_range(start=date_range[0], periods=10, freq='D')
-            mock_sent = [0.75, 0.80, 0.78, 0.82, 0.85, 0.83, 0.88, 0.86, 0.89, 0.90]
-            fig_sent = px.line(x=mock_dates, y=mock_sent, labels={'x': 'Data', 'y': 'Net Sentiment score'})
-            fig_sent.update_layout(yaxis_range=[0, 1])
-            st.plotly_chart(fig_sent, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 if __name__ == "__main__":
     main()
