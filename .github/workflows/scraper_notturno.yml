@@ -1,0 +1,36 @@
+name: Scraper Notturno Prezzi
+
+on:
+  schedule:
+    # Esegue ogni giorno alle 03:00 UTC
+    - cron: '0 3 * * *'
+  workflow_dispatch: # Ti fa comparire un bottone su GitHub per testarlo a mano quando vuoi
+
+jobs:
+  scrape_and_save:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Dà il permesso al bot di sovrascrivere il tuo file CSV
+
+    steps:
+      - name: Scarica il codice repository
+        uses: actions/checkout@v3
+
+      - name: Prepara Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Installa le librerie necessarie
+        run: pip install pandas requests beautifulsoup4
+
+      - name: Lancia il motore di Price Intelligence
+        run: python bot_prezzi.py
+
+      - name: Salva i nuovi prezzi nel database storico
+        run: |
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "actions@github.com"
+          git add storico_prezzi.csv
+          git commit -m "🤖 Aggiornamento notturno storico prezzi" || echo "Nessun nuovo dato da salvare"
+          git push
