@@ -11,8 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write # Dà il permesso al bot di sovrascrivere il tuo file CSV
-
-steps:
+    steps: # <-- ECCO LA CORREZIONE: Ora è dentro il job "scrape_and_save"
       - name: Checkout del codice
         uses: actions/checkout@v4
 
