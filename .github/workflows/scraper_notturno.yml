@@ -2,16 +2,15 @@ name: Scraper Notturno Prezzi
 
 on:
   schedule:
-    # Esegue ogni giorno alle 03:00 UTC
     - cron: '0 3 * * *'
-  workflow_dispatch: # Ti fa comparire un bottone su GitHub per testarlo a mano quando vuoi
+  workflow_dispatch:
 
 jobs:
   scrape_and_save:
     runs-on: ubuntu-latest
     permissions:
-      contents: write # Dà il permesso al bot di sovrascrivere il tuo file CSV
-    steps: # <-- ECCO LA CORREZIONE: Ora è dentro il job "scrape_and_save"
+      contents: write
+    steps:
       - name: Checkout del codice
         uses: actions/checkout@v4
 
