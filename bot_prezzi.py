@@ -101,7 +101,7 @@ def avvia_scraping():
     for index, row in df_input.iterrows():
         sito = str(row['SITO_ECOMMERCE']).strip().lower()
         url = row['LINK']
-        nome_vino = row['NOME_VINO']
+        nome_vino = row['VINO']
         
         print(f"Scraping: {nome_vino} su {sito}...")
         
