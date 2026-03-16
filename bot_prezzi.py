@@ -119,4 +119,4 @@ def avvia_scraping():
             elif 'vino.com' in sito: dati = estrai_vinocom(soup)
             elif 'xtrawine' in sito: dati = estrai_xtrawine(soup)
             elif 'bernabei' in sito: dati = estrai_bernabei(soup)
-            elif 'vivino'
+            elif 'vivino' in sito:
