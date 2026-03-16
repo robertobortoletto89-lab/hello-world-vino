@@ -94,7 +94,7 @@ def avvia_scraping():
         print(f"Errore: File {FILE_INPUT} non trovato!")
         return
 
-    df_input = pd.read_csv(FILE_INPUT)
+    df_input = pd.read_csv(FILE_INPUT, sep=';')
     risultati = []
     oggi = datetime.now().strftime('%Y-%m-%d')
 
