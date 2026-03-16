@@ -119,4 +119,34 @@ def avvia_scraping():
             elif 'vino.com' in sito: dati = estrai_vinocom(soup)
             elif 'xtrawine' in sito: dati = estrai_xtrawine(soup)
             elif 'bernabei' in sito: dati = estrai_bernabei(soup)
-            elif 'vivino' in sito:
+            elif 'vivino' in sito: dati = estrai_vivino(soup)
+            else: continue
+
+            # Prepara la riga da salvare
+            risultati.append({
+                'DATA': oggi,
+                'NOME_VINO': nome_vino,
+                'SITO_ECOMMERCE': row['SITO_ECOMMERCE'],
+                'PREZZO_RILEVATO': dati['prezzo_originale'],
+                'PREZZO_SCONTATO': dati['prezzo_scontato'],
+                'STOCKOUT': 'SI' if dati['stockout'] else 'NO'
+            })
+            
+        except Exception as e:
+            print(f"  -> Errore tecnico: {e}")
+            continue
+
+    # Salvataggio dati
+    if risultati:
+        df_nuovi = pd.DataFrame(risultati)
+        if os.path.exists(FILE_OUTPUT):
+            df_storico = pd.read_csv(FILE_OUTPUT)
+            df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
+        else:
+            df_finale = df_nuovi
+            
+        df_finale.to_csv(FILE_OUTPUT, index=False)
+        print("✅ Database storico aggiornato con successo!")
+
+if __name__ == "__main__":
+    avvia_scraping()
