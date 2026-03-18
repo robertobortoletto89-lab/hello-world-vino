@@ -317,3 +317,67 @@ DATA,CANTINA,VINO,SITO,PREZZO_RILEVATO,PREZZO_SCONTATO,STOCKOUT,NOME_VINO,SITO_E
 2026-03-17,,,,0.0,,NO,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Xtrawine
 2026-03-17,,,,13.6,,NO,Valpolicella Ripasso Superiore DOC,Vino.com
 2026-03-17,,,,7.9,,NO,Valdobbiadene Prosecco Superiore DOCG,Bernabei
+2026-03-18,,,,23.0,23.0,NO,Valdobbiadene Superiore di Cartizze Dry DOCG,Tannico
+2026-03-18,,,,23.2,,NO,Valdobbiadene Superiore di Cartizze Dry DOCG,Vino.com
+2026-03-18,,,,22.0,,SI,Valdobbiadene Superiore di Cartizze Dry DOCG,Callmewine
+2026-03-18,,,,12.0,12.0,NO,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Tannico
+2026-03-18,,,,12.8,,NO,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Vino.com
+2026-03-18,,,,10.7,,SI,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Callmewine
+2026-03-18,,,,31.0,31.0,NO,Valdobbiadene Superiore di Cartizze DOCG La Rivetta,Tannico
+2026-03-18,,,,29.8,,NO,Valdobbiadene Superiore di Cartizze DOCG La Rivetta,Vino.com
+2026-03-18,,,,29.0,,SI,Valdobbiadene Superiore di Cartizze DOCG La Rivetta,Callmewine
+2026-03-18,,,,9.9,9.9,NO,Il Fresco - Prosecco Doc Millesimato Extra Dry,Tannico
+2026-03-18,,,,8.9,,NO,Il Fresco - Prosecco Doc Millesimato Extra Dry,Vino.com
+2026-03-18,,,,0.0,,NO,Il Fresco - Prosecco Doc Millesimato Extra Dry,Xtrawine
+2026-03-18,,,,8.9,8.9,NO,Il Fresco - Prosecco Doc Brut,Tannico
+2026-03-18,,,,8.9,,NO,Il Fresco - Prosecco Doc Brut,Vino.com
+2026-03-18,,,,0.0,,NO,Il Fresco - Prosecco Doc Brut,Xtrawine
+2026-03-18,,,,39.9,39.9,NO,Costasera - Amarone Classico DOCG,Tannico
+2026-03-18,,,,39.9,,NO,Costasera - Amarone Classico DOCG,Vino.com
+2026-03-18,,,,35.0,,NO,Costasera - Amarone Classico DOCG,Bernabei
+2026-03-18,,,,39.9,,NO,Costasera - Amarone Classico DOCG,Callmewine
+2026-03-18,,,,0.0,,NO,Costasera - Amarone Classico DOCG,Xtrawine
+2026-03-18,,,,14.5,14.5,NO,Campofiorin - Rosso Verona IGT,Tannico
+2026-03-18,,,,14.6,,NO,Campofiorin - Rosso Verona IGT,Vino.com
+2026-03-18,,,,0.0,,NO,Campofiorin - Rosso Verona IGT,Xtrawine
+2026-03-18,,,,14.7,,NO,Campofiorin - Rosso Verona IGT,Callmewine
+2026-03-18,,,,11.2,,NO,Campofiorin - Rosso Verona IGT,Bernabei
+2026-03-18,,,,9.5,9.5,NO,Levarìe 2024 - Soave,Tannico
+2026-03-18,,,,9.5,,NO,Levarìe 2024 - Soave,Vino.com
+2026-03-18,,,,9.7,,SI,Levarìe 2024 - Soave,Callmewine
+2026-03-18,,,,9.0,,NO,Levarìe 2024 - Soave,Bernabei
+2026-03-18,,,,,,NO,Levarìe 2024 - Soave,Vivino.com
+2026-03-18,,,,13.5,13.5,NO,Rosa dei Masi 2024 - Rosato TreVenezie IGT,Tannico
+2026-03-18,,,,12.1,,NO,Rosa dei Masi 2024 - Rosato TreVenezie IGT,Vino.com
+2026-03-18,,,,0.0,,NO,Rosa dei Masi 2024 - Rosato TreVenezie IGT,Xtrawine
+2026-03-18,,,,19.9,19.9,NO,Palazzo della Torre - Veronese IGT,Tannico
+2026-03-18,,,,17.7,,NO,Palazzo della Torre - Veronese IGT,Vino.com
+2026-03-18,,,,0.0,,NO,Palazzo della Torre - Veronese IGT,Xtrawine
+2026-03-18,,,,19.4,,NO,Palazzo della Torre - Veronese IGT,Callmewine
+2026-03-18,,,,17.5,,NO,Palazzo della Torre - Veronese IGT,Bernabei
+2026-03-18,,,,80.0,80.0,NO,Amarone della Valpolicella Classico DOCG,Tannico
+2026-03-18,,,,72.0,,NO,Amarone della Valpolicella Classico DOCG,Vino.com
+2026-03-18,,,,0.0,,NO,Amarone della Valpolicella Classico DOCG,Xtrawine
+2026-03-18,,,,75.0,,SI,Amarone della Valpolicella Classico DOCG,Callmewine
+2026-03-18,,,,65.0,,NO,Amarone della Valpolicella Classico DOCG,Bernabei
+2026-03-18,,,,16.0,16.0,NO,Lugana Oasi Mantellina DOC,Tannico
+2026-03-18,,,,14.6,,NO,Lugana Oasi Mantellina DOC,Vino.com
+2026-03-18,,,,0.0,,NO,Lugana Oasi Mantellina DOC,Xtrawine
+2026-03-18,,,,15.2,,NO,Lugana Oasi Mantellina DOC,Callmewine
+2026-03-18,,,,14.9,,NO,Lugana Oasi Mantellina DOC,Bernabei
+2026-03-18,,,,86.2,86.2,NO,La Poja - Corvina Veronese IGT,Tannico
+2026-03-18,,,,0.0,,NO,La Poja - Corvina Veronese IGT,Xtrawine
+2026-03-18,,,,112.0,,SI,La Poja - Corvina Veronese IGT,Callmewine
+2026-03-18,,,,84.0,,NO,La Poja - Corvina Veronese IGT,Bernabei
+2026-03-18,,,,12.0,12.0,NO,Valdobbiadene Prosecco Superiore DOCG Brut,Tannico
+2026-03-18,,,,13.3,,NO,Valdobbiadene Prosecco Superiore DOCG Brut,Vino.com
+2026-03-18,,,,0.0,,NO,Valdobbiadene Prosecco Superiore DOCG Brut,Xtrawine
+2026-03-18,,,,10.2,,NO,Valdobbiadene Prosecco Superiore DOCG Brut,Callmewine
+2026-03-18,,,,10.4,10.4,NO,Vino Spumante Brut Rosé,Tannico
+2026-03-18,,,,12.6,,NO,Vino Spumante Brut Rosé,Vino.com
+2026-03-18,,,,13.0,,NO,Vino Spumante Brut Rosé,Callmewine
+2026-03-18,,,,12.0,12.0,NO,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Tannico
+2026-03-18,,,,12.0,,NO,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Vino.com
+2026-03-18,,,,0.0,,NO,Valdobbiadene Prosecco Superiore DOCG Extra Dry,Xtrawine
+2026-03-18,,,,13.6,,NO,Valpolicella Ripasso Superiore DOC,Vino.com
+2026-03-18,,,,7.9,,NO,Valdobbiadene Prosecco Superiore DOCG,Bernabei
