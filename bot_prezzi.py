@@ -14,7 +14,6 @@ HEADERS = {
 def pulisci_prezzo(testo):
     if not testo: return None
     try:
-        # Pulisce da euro, spazi invisibili e formatta il decimale
         pulito = testo.replace('€', '').replace('\xa0', '').strip()
         pulito = re.sub(r'[^\d,.-]', '', pulito).replace(',', '.')
         return float(pulito)
@@ -39,7 +38,6 @@ def estrai_tannico(soup):
 def estrai_callmewine(soup):
     is_stockout = "non disponibile" in soup.text.lower() or "esaurito" in soup.text.lower()
     p_orig, p_scont = None, None
-    # Arma Nucleare: JSON-LD
     scripts = soup.find_all('script', type='application/ld+json')
     for script in scripts:
         try:
@@ -78,15 +76,13 @@ def estrai_bernabei(soup):
 def estrai_vivino(soup):
     is_stockout = "non disponibile" in soup.text.lower()
     p_orig, p_scont = None, None
-    # Vivino usa classi dinamiche, cerchiamo con regex
     tag = soup.find('span', class_=re.compile('purchaseAvailability__currentPrice'))
     if tag:
         p_orig = pulisci_prezzo(tag.text)
     return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
 
-# --- MOTORE PRINCIPALE ---
 def avvia_scraping():
-    # Sostituisci "prodotti.csv" con il nome esatto del tuo file di input
+    # File input inviato da te:
     FILE_INPUT = 'database_vini.csv' 
     FILE_OUTPUT = 'storico_prezzi.csv'
     
@@ -94,58 +90,60 @@ def avvia_scraping():
         print(f"Errore: File {FILE_INPUT} non trovato!")
         return
 
+    # Usiamo il separatore ; perché è quello italiano del tuo file
     df_input = pd.read_csv(FILE_INPUT, sep=';')
     risultati = []
     oggi = datetime.now().strftime('%Y-%m-%d')
 
     for index, row in df_input.iterrows():
-        sito = str(row['SITO_ECOMMERCE']).strip().lower()
-        url = row['LINK']
-        nome_vino = row['VINO']
+        # Pulizia robusta in caso di celle vuote
+        sito = str(row.get('SITO_ECOMMERCE', '')).strip().lower()
+        url = str(row.get('LINK', '')).strip()
+        nome_vino = row.get('VINO', 'Sconosciuto')
         
+        if not url or url.lower() == 'nan':
+            continue
+            
         print(f"Scraping: {nome_vino} su {sito}...")
+        
+        dati = {'prezzo_originale': None, 'prezzo_scontato': None, 'stockout': False}
         
         try:
             response = requests.get(url, headers=HEADERS, timeout=10)
-            if response.status_code != 200:
-                print(f"  -> Blocco dal server (Status {response.status_code}). Salto.")
-                continue
+            if response.status_code == 200:
+                soup = BeautifulSoup(response.content, 'html.parser')
                 
-            soup = BeautifulSoup(response.content, 'html.parser')
-            
-            # Routing
-            if 'tannico' in sito: dati = estrai_tannico(soup)
-            elif 'callmewine' in sito: dati = estrai_callmewine(soup)
-            elif 'vino.com' in sito: dati = estrai_vinocom(soup)
-            elif 'xtrawine' in sito: dati = estrai_xtrawine(soup)
-            elif 'bernabei' in sito: dati = estrai_bernabei(soup)
-            elif 'vivino' in sito: dati = estrai_vivino(soup)
-            else: continue
-
-            # Prepara la riga da salvare
-            risultati.append({
-                'DATA': oggi,
-                'NOME_VINO': nome_vino,
-                'SITO_ECOMMERCE': row['SITO_ECOMMERCE'],
-                'PREZZO_RILEVATO': dati['prezzo_originale'],
-                'PREZZO_SCONTATO': dati['prezzo_scontato'],
-                'STOCKOUT': 'SI' if dati['stockout'] else 'NO'
-            })
-            
+                if 'tannico' in sito: dati = estrai_tannico(soup)
+                elif 'callmewine' in sito: dati = estrai_callmewine(soup)
+                elif 'vino.com' in sito: dati = estrai_vinocom(soup)
+                elif 'xtrawine' in sito: dati = estrai_xtrawine(soup)
+                elif 'bernabei' in sito: dati = estrai_bernabei(soup)
+                elif 'vivino' in sito: dati = estrai_vivino(soup)
+            else:
+                print(f"  -> Blocco dal server (Status {response.status_code}).")
         except Exception as e:
             print(f"  -> Errore tecnico: {e}")
-            continue
+
+        # Clona l'intera riga originale e aggiunge in coda le 4 nuove metriche
+        nuova_riga = row.to_dict()
+        nuova_riga['DATA'] = oggi
+        nuova_riga['PREZZO_RILEVATO'] = dati['prezzo_originale']
+        nuova_riga['PREZZO_SCONTATO'] = dati['prezzo_scontato']
+        nuova_riga['STOCKOUT'] = 'SI' if dati['stockout'] else 'NO'
+        
+        risultati.append(nuova_riga)
 
     # Salvataggio dati
     if risultati:
         df_nuovi = pd.DataFrame(risultati)
         if os.path.exists(FILE_OUTPUT):
-            df_storico = pd.read_csv(FILE_OUTPUT)
+            df_storico = pd.read_csv(FILE_OUTPUT, sep=';')
             df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
         else:
             df_finale = df_nuovi
             
-        df_finale.to_csv(FILE_OUTPUT, index=False)
+        # Salviamo in CSV con separatore ; in modo da non "fondere" mai più le colonne!
+        df_finale.to_csv(FILE_OUTPUT, sep=';', index=False)
         print("✅ Database storico aggiornato con successo!")
 
 if __name__ == "__main__":
