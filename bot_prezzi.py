@@ -58,13 +58,42 @@ def estrai_vinocom(soup):
     return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
 
 def estrai_xtrawine(soup):
-    is_stockout = "non disponibile" in soup.text.lower()
+    is_stockout = "non disponibile" in soup.text.lower() or "esaurito" in soup.text.lower()
     p_orig, p_scont = None, None
-    tag_prezzo = soup.find('span', class_='notranslate ht-money')
-    if tag_prezzo:
-        p_orig = pulisci_prezzo(tag_prezzo.text)
-    return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
+    
+    # 1. Arma Nucleare: JSON-LD (Dati strutturati invisibili)
+    scripts = soup.find_all('script', type='application/ld+json')
+    for script in scripts:
+        try:
+            dati = json.loads(script.string)
+            if isinstance(dati, list):
+                for item in dati:
+                    if 'offers' in item and 'price' in item['offers']:
+                        p_orig = float(item['offers']['price'])
+                        break
+            elif isinstance(dati, dict):
+                offers = dati.get('offers', [])
+                if isinstance(offers, list) and len(offers) > 0 and 'price' in offers[0]:
+                    p_orig = float(offers[0]['price'])
+                elif isinstance(offers, dict) and 'price' in offers:
+                    p_orig = float(offers['price'])
+        except:
+            continue
+            
+    # 2. Rete di sicurezza: Meta Tag (Spesso usati nei nuovi CMS)
+    if p_orig is None:
+        meta_price = soup.find('meta', property='product:price:amount')
+        if meta_price and meta_price.get('content'):
+            p_orig = pulisci_prezzo(meta_price['content'])
 
+    # 3. Fallback di emergenza sulle classi generiche
+    if p_orig is None:
+        tag_prezzo = soup.find('span', class_=re.compile('ht-money|price', re.I))
+        if tag_prezzo:
+            p_orig = pulisci_prezzo(tag_prezzo.text)
+            
+    return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
+    
 def estrai_bernabei(soup):
     is_stockout = "non disponibile" in soup.text.lower()
     p_orig, p_scont = None, None
