@@ -58,42 +58,51 @@ def estrai_vinocom(soup):
     return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
 
 def estrai_xtrawine(soup):
-    is_stockout = "non disponibile" in soup.text.lower() or "esaurito" in soup.text.lower()
-    p_orig, p_scont = None, None
+    html_str = str(soup)
+    is_stockout = "non disponibile" in html_str.lower() or "esaurito" in html_str.lower()
+    p_orig = None
     
-    # 1. Arma Nucleare: JSON-LD (Dati strutturati invisibili)
-    scripts = soup.find_all('script', type='application/ld+json')
-    for script in scripts:
-        try:
-            dati = json.loads(script.string)
-            if isinstance(dati, list):
-                for item in dati:
-                    if 'offers' in item and 'price' in item['offers']:
-                        p_orig = float(item['offers']['price'])
+    # Cerchiamo tutti i possibili formati di prezzo per aggirare gli "zeri" di caricamento
+    
+    # Tentativo 1: Variabili Javascript nascoste (es. "price": 14.50)
+    match_js = re.findall(r'["\']price["\']\s*:\s*["\']?(\d+[,\.]\d+)["\']?', html_str, re.IGNORECASE)
+    for p in match_js:
+        val = pulisci_prezzo(p)
+        if val and val > 0: 
+            p_orig = val
+            break
+            
+    # Tentativo 2: JSON-LD (Dati strutturati) ignorando esplicitamente gli zeri
+    if not p_orig:
+        scripts = soup.find_all('script', type='application/ld+json')
+        for script in scripts:
+            try:
+                dati = json.loads(script.string)
+                # Logica per estrarre il prezzo da strutture JSON complesse
+                dati_str = json.dumps(dati)
+                match_json = re.findall(r'"price"\s*:\s*["\']?(\d+[,\.]\d+)["\']?', dati_str, re.IGNORECASE)
+                for p in match_json:
+                    val = pulisci_prezzo(p)
+                    if val and val > 0:
+                        p_orig = val
                         break
-            elif isinstance(dati, dict):
-                offers = dati.get('offers', [])
-                if isinstance(offers, list) and len(offers) > 0 and 'price' in offers[0]:
-                    p_orig = float(offers[0]['price'])
-                elif isinstance(offers, dict) and 'price' in offers:
-                    p_orig = float(offers['price'])
-        except:
-            continue
-            
-    # 2. Rete di sicurezza: Meta Tag (Spesso usati nei nuovi CMS)
-    if p_orig is None:
-        meta_price = soup.find('meta', property='product:price:amount')
-        if meta_price and meta_price.get('content'):
-            p_orig = pulisci_prezzo(meta_price['content'])
+            except:
+                continue
+            if p_orig: break
 
-    # 3. Fallback di emergenza sulle classi generiche
-    if p_orig is None:
-        tag_prezzo = soup.find('span', class_=re.compile('ht-money|price', re.I))
-        if tag_prezzo:
-            p_orig = pulisci_prezzo(tag_prezzo.text)
-            
-    return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
-    
+    # Tentativo 3: Testo visibile vicino al simbolo dell'Euro (es. 12,50 €)
+    if not p_orig:
+        prezzi_euro = re.findall(r'(\d+[,\.]\d{2})\s*€|€\s*(\d+[,\.]\d{2})', soup.text)
+        for p_tupla in prezzi_euro:
+            # re.findall con gruppi (OR) restituisce tuple es. ('12,50', '')
+            p_testo = p_tupla[0] if p_tupla[0] else p_tupla[1]
+            val = pulisci_prezzo(p_testo)
+            if val and val > 0:
+                p_orig = val
+                break
+
+    return {'prezzo_originale': p_orig, 'prezzo_scontato': None, 'stockout': is_stockout}
+        
 def estrai_bernabei(soup):
     is_stockout = "non disponibile" in soup.text.lower()
     p_orig, p_scont = None, None
