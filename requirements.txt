@@ -1,4 +1,8 @@
 streamlit
 pandas
-gspread==5.12.0
 plotly
+wordcloud
+matplotlib
+requests
+beautifulsoup4
+gspread==5.12.0
