@@ -39,9 +39,9 @@ def estrai_tannico(soup):
                 base_tag = contenitore.find('span', class_=re.compile('tw-font-bold'))
                 p_orig = pulisci_prezzo(base_tag.text) if base_tag else None
         else:
-            print("    ⚠️ Tannico: Contenitore prezzo non trovato. Layout cambiato o blocco.")
-    except Exception as e:
-        print(f"    ⚠️ Errore estrazione Tannico: {e}")
+            pass
+    except Exception:
+        pass
         
     return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
 
@@ -115,7 +115,7 @@ def avvia_scraping():
     try:
         df_input = pd.read_csv(FILE_INPUT, sep=';', encoding='utf-8-sig', engine='python')
     except Exception as e:
-        print(f"Errore critico di lettura anagrafica: {e}")
+        print(f"Errore critico lettura anagrafica: {e}")
         return
 
     df_input.columns = df_input.columns.str.strip().str.upper()
@@ -144,10 +144,9 @@ def avvia_scraping():
                 elif 'vino.com' in sito_origine: dati = estrai_vinocom(soup)
                 elif 'xtrawine' in sito_origine: dati = estrai_xtrawine(soup)
                 elif 'bernabei' in sito_origine: dati = estrai_bernabei(soup)
-        except Exception as e:
-            print(f"    -> Errore: {e}")
+        except Exception:
+            pass
 
-        # LA CORREZIONE: Usiamo 'None' per lasciare la cella vuota nel CSV se non c'è prezzo/sconto
         record = {
             'DATA_ESTRAZIONE': oggi,
             'CANTINA': cantina,
@@ -163,6 +162,7 @@ def avvia_scraping():
     if risultati:
         df_nuovi = pd.DataFrame(risultati)
         
+        # Ordine ufficiale
         ordine_colonne = ['DATA_ESTRAZIONE', 'CANTINA', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'LINK_SCRAPING']
         df_nuovi = df_nuovi[ordine_colonne]
         
@@ -171,19 +171,26 @@ def avvia_scraping():
                 df_storico = pd.read_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', engine='python')
                 df_storico.columns = df_storico.columns.str.strip().str.upper()
                 
-                mappature = {'DATA': 'DATA_ESTRAZIONE', 'VINO': 'NOME_PRODOTTO', 'SHOP': 'SITO_ORIGINE', 'SITO_ECOMMERCE': 'SITO_ORIGINE', 'LINK': 'LINK_SCRAPING', 'LINK SCRAPING': 'LINK_SCRAPING'}
-                df_storico.rename(columns={k: v for k, v in mappature.items() if k in df_storico.columns}, inplace=True)
-                
-                colonne_valide = [c for c in df_storico.columns if c in ordine_colonne]
-                df_storico = df_storico[colonne_valide]
+                # Se nello storico vecchio CANTINA non c'è, la creo VUOTA prima di fondere i file
+                if 'CANTINA' not in df_storico.columns:
+                    df_storico['CANTINA'] = ''
+                    
                 df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
             except Exception:
                 df_finale = df_nuovi
         else:
             df_finale = df_nuovi
             
+        # LUCCHETTO FINALE: Costringo Pandas a stampare le colonne ESATTAMENTE nell'ordine che vogliamo, 
+        # e se qualcuna si è persa per strada, la reinserisce. Nessuna eccezione ammessa.
+        for col in ordine_colonne:
+            if col not in df_finale.columns:
+                df_finale[col] = ''
+        
+        df_finale = df_finale[ordine_colonne]
+            
         df_finale.to_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', index=False)
-        print("✅ Database storico aggiornato (Celle vuote per sconti inesistenti)!")
+        print("✅ Database salvato. Colonna CANTINA forzata e incollata con successo.")
 
 if __name__ == "__main__":
     avvia_scraping()
