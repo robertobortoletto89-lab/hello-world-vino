@@ -4,10 +4,10 @@ import time
 from datetime import datetime
 import os
 
-# 1. SETUP: Variabili del nostro vino "Esca" (Villa Sandi Cartizze Vigna La Rivetta)
+# 1. SETUP: Variabili del nostro vino "Esca"
 WINE_ID = "2294030" 
 NOME_PRODOTTO = "Cartizze Vigna La Rivetta"
-CODICE_PRODOTTO = "VS-CART-LR-01" # Ho inserito un codice SKU fittizio per il PoC, cambialo se hai quello reale
+ID_PRODOTTO = "VS-CART-LR-01" # Allineato al dizionario dati
 CATEGORIA = "Bollicine"
 
 # Configurazione per sembrare un browser reale (Anti-Ban)
@@ -48,14 +48,15 @@ def estrai_recensioni_vivino(wine_id, max_reviews=100):
                 
                 # Aggiungiamo solo se c'è un testo scritto (i voti senza commento non ci servono per la sentiment)
                 if testo and len(testo) > 5:
+                    # RIGA COSTRUITA ESATTAMENTE SUL DIZIONARIO DATI UFFICIALE
                     recensioni_estratte.append({
-                        "GIORNO_RECENSIONE": giorno_formattato,
-                        "CODICE_PRODOTTO": CODICE_PRODOTTO,
+                        "DATA_COMMENTO": giorno_formattato,
+                        "ID_PRODOTTO": ID_PRODOTTO,
                         "NOME_PRODOTTO": NOME_PRODOTTO,
                         "CATEGORIA_PRODOTTO": CATEGORIA,
-                        "SITO": "Vivino",
+                        "SITO_ORIGINE": "Vivino",
                         "RATING_ORIGINALE": rating,
-                        "TESTO_RECENSIONE": testo
+                        "TESTO_COMMENTO": testo
                     })
             
             print(f"Pagina {page} completata. Trovate {len(recensioni_estratte)} recensioni finora.")
@@ -73,15 +74,21 @@ def estrai_recensioni_vivino(wine_id, max_reviews=100):
 dati = estrai_recensioni_vivino(WINE_ID)
 
 if dati:
-    df = pd.DataFrame(dati)
+    df_nuovi = pd.DataFrame(dati)
     file_csv = "sentiment_vini_raw.csv"
     
-    # Se il file esiste già accodiamo i dati, altrimenti lo creiamo
+    # Salvataggio relazionale e blindato per Excel (utf-8-sig)
     if os.path.isfile(file_csv):
-        df.to_csv(file_csv, mode='a', header=False, index=False, sep=';')
+        try:
+            df_storico = pd.read_csv(file_csv, sep=';', encoding='utf-8-sig')
+            df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
+        except Exception as e:
+            print(f"⚠️ Errore lettura vecchio file: {e}. Sovrascrivo con i nuovi dati.")
+            df_finale = df_nuovi
     else:
-        df.to_csv(file_csv, index=False, sep=';')
+        df_finale = df_nuovi
         
+    df_finale.to_csv(file_csv, index=False, sep=';', encoding='utf-8-sig')
     print(f"✅ Successo! Salvate {len(dati)} recensioni in {file_csv}")
 else:
     print("❌ Nessuna recensione estratta.")
