@@ -7,7 +7,7 @@ import os
 # 1. SETUP: Variabili del nostro vino "Esca"
 WINE_ID = "2294030" 
 NOME_PRODOTTO = "Cartizze Vigna La Rivetta"
-ID_PRODOTTO = "VS-CART-LR-01" # Allineato al dizionario dati
+ID_PRODOTTO = "VS-CART-LR-01" 
 CATEGORIA = "Bollicine"
 
 # Configurazione per sembrare un browser reale (Anti-Ban)
@@ -48,7 +48,6 @@ def estrai_recensioni_vivino(wine_id, max_reviews=100):
                 
                 # Aggiungiamo solo se c'è un testo scritto (i voti senza commento non ci servono per la sentiment)
                 if testo and len(testo) > 5:
-                    # RIGA COSTRUITA ESATTAMENTE SUL DIZIONARIO DATI UFFICIALE
                     recensioni_estratte.append({
                         "DATA_COMMENTO": giorno_formattato,
                         "ID_PRODOTTO": ID_PRODOTTO,

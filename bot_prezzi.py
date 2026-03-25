@@ -112,29 +112,26 @@ def avvia_scraping():
         print(f"Errore: File {FILE_INPUT} non trovato!")
         return
 
-    # 1. Lettura rigorosa
     try:
         df_input = pd.read_csv(FILE_INPUT, sep=';', encoding='utf-8-sig', engine='python')
     except Exception as e:
         print(f"Errore critico di lettura anagrafica: {e}")
         return
 
-    # Pulizia spazi invisibili dalle intestazioni
     df_input.columns = df_input.columns.str.strip().str.upper()
-
     risultati = []
     oggi = datetime.now().strftime('%d/%m/%Y')
 
     for index, row in df_input.iterrows():
-        # UTILIZZO DEL DIZIONARIO DATI CON "SITO_ORIGINE"
         url = str(row.get('LINK_SCRAPING', '')).strip() 
+        cantina = str(row.get('CANTINA', 'Sconosciuta')).strip()
         nome_prodotto = str(row.get('NOME_PRODOTTO', 'Sconosciuto')).strip()
         sito_origine = str(row.get('SITO_ORIGINE', '')).strip().lower()
         
         if not url or url.lower() == 'nan':
             continue
             
-        print(f"Scraping: {nome_prodotto} su {sito_origine}...")
+        print(f"Scraping: {cantina} - {nome_prodotto} su {sito_origine}...")
         dati = {'prezzo_originale': None, 'prezzo_scontato': None, 'stockout': False}
         
         try:
@@ -147,29 +144,26 @@ def avvia_scraping():
                 elif 'vino.com' in sito_origine: dati = estrai_vinocom(soup)
                 elif 'xtrawine' in sito_origine: dati = estrai_xtrawine(soup)
                 elif 'bernabei' in sito_origine: dati = estrai_bernabei(soup)
-            else:
-                print(f"    -> Blocco dal server (Status {response.status_code}).")
         except Exception as e:
-            print(f"    -> Errore di connessione: {e}")
+            print(f"    -> Errore: {e}")
 
-        # 2. COSTRUZIONE DELLA RIGA (Solo 7 colonne come da Dizionario)
+        # LA CORREZIONE: Usiamo 'None' per lasciare la cella vuota nel CSV se non c'è prezzo/sconto
         record = {
             'DATA_ESTRAZIONE': oggi,
+            'CANTINA': cantina,
             'NOME_PRODOTTO': nome_prodotto,
             'SITO_ORIGINE': sito_origine.capitalize(),
-            'PREZZO_RILEVATO': dati['prezzo_originale'] if dati['prezzo_originale'] else 0.0,
-            'PREZZO_SCONTATO': dati['prezzo_scontato'] if dati['prezzo_scontato'] else 0.0,
+            'PREZZO_RILEVATO': dati['prezzo_originale'] if dati['prezzo_originale'] else None,
+            'PREZZO_SCONTATO': dati['prezzo_scontato'] if dati['prezzo_scontato'] else None,
             'STOCKOUT': 'SI' if dati['stockout'] else 'NO',
             'LINK_SCRAPING': url
         }
         risultati.append(record)
 
-    # 3. SALVATAGGIO DATI NORMALIZZATO
     if risultati:
         df_nuovi = pd.DataFrame(risultati)
         
-        # Ordine esatto da Dizionario Dati
-        ordine_colonne = ['DATA_ESTRAZIONE', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'LINK_SCRAPING']
+        ordine_colonne = ['DATA_ESTRAZIONE', 'CANTINA', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'LINK_SCRAPING']
         df_nuovi = df_nuovi[ordine_colonne]
         
         if os.path.exists(FILE_OUTPUT):
@@ -177,33 +171,19 @@ def avvia_scraping():
                 df_storico = pd.read_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', engine='python')
                 df_storico.columns = df_storico.columns.str.strip().str.upper()
                 
-                # Mapper avanzato per salvare lo storico e portarlo al nuovo standard
-                mappature = {
-                    'DATA': 'DATA_ESTRAZIONE', 
-                    'DATA_RILEVAZIONE': 'DATA_ESTRAZIONE',
-                    'VINO': 'NOME_PRODOTTO', 
-                    'SHOP': 'SITO_ORIGINE', 
-                    'PIATTAFORMA': 'SITO_ORIGINE',
-                    'SITO_ECOMMERCE': 'SITO_ORIGINE',
-                    'LINK': 'LINK_SCRAPING', 
-                    'LINK SCRAPING': 'LINK_SCRAPING'
-                }
+                mappature = {'DATA': 'DATA_ESTRAZIONE', 'VINO': 'NOME_PRODOTTO', 'SHOP': 'SITO_ORIGINE', 'SITO_ECOMMERCE': 'SITO_ORIGINE', 'LINK': 'LINK_SCRAPING', 'LINK SCRAPING': 'LINK_SCRAPING'}
                 df_storico.rename(columns={k: v for k, v in mappature.items() if k in df_storico.columns}, inplace=True)
                 
-                # Taglia via tutte le colonne in più (Cantina, Descrizione, ecc.) dallo storico
                 colonne_valide = [c for c in df_storico.columns if c in ordine_colonne]
                 df_storico = df_storico[colonne_valide]
-
                 df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
-            except Exception as e:
-                print(f"⚠️ Errore lettura storico: {e}. Salvo solo i dati di oggi.")
+            except Exception:
                 df_finale = df_nuovi
         else:
             df_finale = df_nuovi
             
-        # Salvataggio finale blindato (utf-8-sig + ;)
         df_finale.to_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', index=False)
-        print("✅ Database storico aggiornato con successo (SITO_ORIGINE allineato)!")
+        print("✅ Database storico aggiornato (Celle vuote per sconti inesistenti)!")
 
 if __name__ == "__main__":
     avvia_scraping()
