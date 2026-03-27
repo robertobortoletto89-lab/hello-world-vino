@@ -43,21 +43,26 @@ def carica_dati_prezzi():
         return pd.DataFrame()
 
     try:
-        # 1. Caricamento Master Vini
+        # 1. Caricamento Master Vini (Anagrafica)
         df_vini = pd.read_csv('database_vini.csv', sep=';', encoding='utf-8-sig', engine='python')
+        df_vini.columns = df_vini.columns.str.strip().str.upper() # Pulizia invisibile
         if 'PREZZO_BASE' in df_vini.columns:
             df_vini['PREZZO_BASE'] = pd.to_numeric(df_vini['PREZZO_BASE'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-        df_vini_unique = df_vini.drop_duplicates(subset=['NOME_PRODOTTO']).copy()
+        
+        # Unicità basata sulla CHIAVE COMPOSTA
+        df_vini_unique = df_vini.drop_duplicates(subset=['CANTINA', 'NOME_PRODOTTO']).copy()
 
         # 2. Caricamento Storico Prezzi
         df_prezzi = pd.read_csv('storico_prezzi.csv', sep=';', encoding='utf-8-sig', engine='python')
+        df_prezzi.columns = df_prezzi.columns.str.strip().str.upper()
         df_prezzi['DATA_ESTRAZIONE'] = pd.to_datetime(df_prezzi['DATA_ESTRAZIONE'], format='%d/%m/%Y', errors='coerce')
         
-        # 3. Pulizia ridondanze e Merge Relazionale (Magia)
-        cols_to_drop = [c for c in df_prezzi.columns if c in df_vini_unique.columns and c != 'NOME_PRODOTTO']
+        # 3. Pulizia ridondanze e Merge Relazionale Blindato
+        cols_to_drop = [c for c in df_prezzi.columns if c in df_vini_unique.columns and c not in ['CANTINA', 'NOME_PRODOTTO']]
         df_prezzi = df_prezzi.drop(columns=cols_to_drop)
         
-        df = pd.merge(df_prezzi, df_vini_unique, on='NOME_PRODOTTO', how='left')
+        # MAGIA: Fusione su ENTRAMBE le colonne per isolare i clienti
+        df = pd.merge(df_prezzi, df_vini_unique, on=['CANTINA', 'NOME_PRODOTTO'], how='left')
         df['PREZZO_RILEVATO'] = pd.to_numeric(df['PREZZO_RILEVATO'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
             
         return df
@@ -70,6 +75,7 @@ def carica_dati_sentiment(df_prezzi_master):
     if not os.path.exists('sentiment_vini_elaborato.csv'): return pd.DataFrame()
     try:
         df = pd.read_csv('sentiment_vini_elaborato.csv', sep=';', encoding='utf-8-sig', engine='python')
+        df.columns = df.columns.str.strip().str.upper()
         
         # Le date ora si basano su DATA_COMMENTO (dal nuovo dizionario)
         if 'DATA_COMMENTO' in df.columns:
@@ -77,7 +83,7 @@ def carica_dati_sentiment(df_prezzi_master):
         else:
             df['DATA_COMMENTO'] = datetime.today().date()
             
-        # Incrociamo la Cantina usando la chiave primaria NOME_PRODOTTO
+        # Incrociamo la Cantina usando la mappa del Master se manca nel sentiment
         if not df_prezzi_master.empty and 'CANTINA' not in df.columns and 'NOME_PRODOTTO' in df.columns:
             mappa_cantine = df_prezzi_master[['NOME_PRODOTTO', 'CANTINA']].drop_duplicates().set_index('NOME_PRODOTTO')['CANTINA'].to_dict()
             df['CANTINA'] = df['NOME_PRODOTTO'].map(mappa_cantine).fillna('Cantina Sconosciuta')
