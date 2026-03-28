@@ -1,4 +1,4 @@
-DATA_ESTRAZIONE;NOME_PRODOTTO;SITO_ORIGINE;DATA_RECENSIONE;TESTO_RECENSIONE;SENTIMENT_SCORE;PAROLE_CHIAVE_ESTRATTE
+DATA_ESTRAZIONE;NOME_PRODOTTO;SITO_ORIGINE;DATA_COMMENTO;TESTO_COMMENTO;SENTIMENT_SCORE;PAROLE_CHIAVE_ESTRATTE
 2026-03-21;Cartizze Vigna La Rivetta;Vivino;2024-10-16;Aromatisch, heel veel op het fruit, peche.;Positivo;aromatisch,fruit,peche
 2026-03-21;Cartizze Vigna La Rivetta;Vivino;2025-11-23;Heel mooi glas, onbekend in Nederland maar een aanrader als je een betere mousserende wijn zoekt!;Positivo;onbekend,nederland,aanrader
 2026-03-21;Cartizze Vigna La Rivetta;Vivino;2022-06-03;Suuuuper Prosecco die totaal niet naar prosecco smaakt. Vanille, fris, helemaal top!;Positivo;suuuuper,prosecco,totaal
