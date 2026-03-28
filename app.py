@@ -6,6 +6,7 @@ from datetime import datetime
 from wordcloud import WordCloud
 import matplotlib.pyplot as plt
 import os
+import random
 
 # --- CONFIGURAZIONE PAGINA ---
 st.set_page_config(
@@ -35,7 +36,7 @@ def check_login():
     if 'ruolo' not in st.session_state: st.session_state['ruolo'] = 'Admin' 
     return st.session_state['ruolo']
 
-# --- FUNZIONI CARICAMENTO DATI (ARCHITETTURA RELAZIONALE) ---
+# --- FUNZIONI CARICAMENTO DATI ---
 @st.cache_data(ttl=600)
 def carica_dati_prezzi():
     if not os.path.exists('database_vini.csv') or not os.path.exists('storico_prezzi.csv'):
@@ -43,26 +44,24 @@ def carica_dati_prezzi():
         return pd.DataFrame()
 
     try:
-        # 1. Caricamento Master Vini (Anagrafica)
+        # 1. Caricamento Master Vini
         df_vini = pd.read_csv('database_vini.csv', sep=';', encoding='utf-8-sig', engine='python')
-        df_vini.columns = df_vini.columns.str.strip().str.upper() # Pulizia invisibile
+        df_vini.columns = df_vini.columns.str.strip().str.upper()
         if 'PREZZO_BASE' in df_vini.columns:
             df_vini['PREZZO_BASE'] = pd.to_numeric(df_vini['PREZZO_BASE'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
         
-        # Unicità basata sulla CHIAVE COMPOSTA
-        df_vini_unique = df_vini.drop_duplicates(subset=['CANTINA', 'NOME_PRODOTTO']).copy()
+        colonne_utili = ['CANTINA', 'NOME_PRODOTTO']
+        if 'PREZZO_BASE' in df_vini.columns: colonne_utili.append('PREZZO_BASE')
+        if 'URL_IMMAGINE' in df_vini.columns: colonne_utili.append('URL_IMMAGINE')
+        df_vini_master = df_vini[colonne_utili].drop_duplicates(subset=['CANTINA', 'NOME_PRODOTTO']).copy()
 
         # 2. Caricamento Storico Prezzi
         df_prezzi = pd.read_csv('storico_prezzi.csv', sep=';', encoding='utf-8-sig', engine='python')
         df_prezzi.columns = df_prezzi.columns.str.strip().str.upper()
         df_prezzi['DATA_ESTRAZIONE'] = pd.to_datetime(df_prezzi['DATA_ESTRAZIONE'], format='%d/%m/%Y', errors='coerce')
         
-        # 3. Pulizia ridondanze e Merge Relazionale Blindato
-        cols_to_drop = [c for c in df_prezzi.columns if c in df_vini_unique.columns and c not in ['CANTINA', 'NOME_PRODOTTO']]
-        df_prezzi = df_prezzi.drop(columns=cols_to_drop)
-        
-        # MAGIA: Fusione su ENTRAMBE le colonne per isolare i clienti
-        df = pd.merge(df_prezzi, df_vini_unique, on=['CANTINA', 'NOME_PRODOTTO'], how='left')
+        # 3. Merge Relazionale sulla Chiave Composta
+        df = pd.merge(df_prezzi, df_vini_master, on=['CANTINA', 'NOME_PRODOTTO'], how='left')
         df['PREZZO_RILEVATO'] = pd.to_numeric(df['PREZZO_RILEVATO'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
             
         return df
@@ -72,18 +71,35 @@ def carica_dati_prezzi():
 
 @st.cache_data(ttl=600)
 def carica_dati_sentiment(df_prezzi_master):
-    if not os.path.exists('sentiment_vini_elaborato.csv'): return pd.DataFrame()
+    file_elaborato = 'sentiment_vini_elaborato.csv'
+    file_grezzo = 'sentiment_vini_raw.csv'
+    
+    df = pd.DataFrame()
     try:
-        df = pd.read_csv('sentiment_vini_elaborato.csv', sep=';', encoding='utf-8-sig', engine='python')
+        # Cerca il file con le recensioni già elaborate
+        if os.path.exists(file_elaborato):
+            df = pd.read_csv(file_elaborato, sep=';', encoding='utf-8-sig', engine='python')
+        elif os.path.exists(file_grezzo):
+            st.sidebar.success("🤖 UI Mode: Sentiment simulato dal file grezzo per test grafico.")
+            df = pd.read_csv(file_grezzo, sep=';', encoding='utf-8-sig', engine='python')
+            df['SENTIMENT_SCORE'] = [random.choice(['Positivo', 'Positivo', 'Positivo', 'Neutro', 'Negativo']) for _ in range(len(df))]
+            def simula_parole(score):
+                if score == 'Positivo': return "fruttato, elegante, profumo, eccezionale, ottimo, perlage"
+                elif score == 'Negativo': return "acido, costoso, delusione, piatto, chiuso"
+                else: return "beverino, normale, semplice"
+            df['PAROLE_CHIAVE_ESTRATTE'] = df['SENTIMENT_SCORE'].apply(simula_parole)
+        else:
+            return pd.DataFrame()
+
         df.columns = df.columns.str.strip().str.upper()
         
-        # Le date ora si basano su DATA_COMMENTO (dal nuovo dizionario)
+        # Usa il nuovo campo DATA_COMMENTO
         if 'DATA_COMMENTO' in df.columns:
             df['DATA_COMMENTO'] = pd.to_datetime(df['DATA_COMMENTO'], errors='coerce').dt.date
         else:
             df['DATA_COMMENTO'] = datetime.today().date()
             
-        # Incrociamo la Cantina usando la mappa del Master se manca nel sentiment
+        # Incrocia la Cantina usando la mappa del Master se manca nel sentiment
         if not df_prezzi_master.empty and 'CANTINA' not in df.columns and 'NOME_PRODOTTO' in df.columns:
             mappa_cantine = df_prezzi_master[['NOME_PRODOTTO', 'CANTINA']].drop_duplicates().set_index('NOME_PRODOTTO')['CANTINA'].to_dict()
             df['CANTINA'] = df['NOME_PRODOTTO'].map(mappa_cantine).fillna('Cantina Sconosciuta')
@@ -191,14 +207,13 @@ def render_price_module(df_raw, cantina_scelta):
 # --- MODULO 2: SENTIMENT ANALYSIS ---
 def render_sentiment_module(df_sent, cantina_scelta):
     if df_sent.empty:
-        st.warning("Nessun dato di Sentiment trovato. Assicurati che il file 'sentiment_vini_elaborato.csv' sia presente.")
+        st.warning("Nessun dato di Sentiment trovato.")
         return
 
     if 'NOME_PRODOTTO' not in df_sent.columns:
         st.error(f"⚠️ Errore critico nel CSV del Sentiment. Colonne trovate: {df_sent.columns.tolist()}.")
         return
 
-    # Filtriamo per cantina (derivata in fase di caricamento)
     df_cantina_sent = df_sent[df_sent['CANTINA'] == cantina_scelta]
     if df_cantina_sent.empty:
          st.warning(f"Nessun dato di Sentiment elaborato per la cantina {cantina_scelta}.")
