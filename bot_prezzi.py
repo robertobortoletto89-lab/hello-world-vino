@@ -20,31 +20,54 @@ def pulisci_prezzo(testo):
     except:
         return None
 
-# --- SCUDO ANTI-CRASH PER TANNICO ---
+# --- SCUDO ANTI-CRASH E METODO CARRARMATO PER TANNICO ---
 def estrai_tannico(soup):
     is_stockout = False
     if soup and soup.text:
         is_stockout = "non disponibile" in soup.text.lower()
     
     p_orig, p_scont = None, None
+
+    # Tentativo 1: Dati Strutturati SEO (Il metodo più blindato)
     try:
-        contenitore = soup.find('div', {'data-controller': 'price'})
-        if contenitore:
-            scont_tag = contenitore.find('span', class_=re.compile('tw-text-blue|tw-text-red'))
-            orig_tag = contenitore.find('span', class_=re.compile('tw-line-through'))
-            if scont_tag:
-                p_scont = pulisci_prezzo(scont_tag.text)
-                p_orig = pulisci_prezzo(orig_tag.text) if orig_tag else p_scont
-            else:
-                base_tag = contenitore.find('span', class_=re.compile('tw-font-bold'))
-                p_orig = pulisci_prezzo(base_tag.text) if base_tag else None
-        else:
-            pass
+        scripts = soup.find_all('script', type='application/ld+json')
+        for script in scripts:
+            if script.string and 'price' in script.string.lower():
+                # Estrazione con regex dal json testuale per catturare il prezzo ovunque sia annidato
+                match_price = re.search(r'"price":\s*"?(\d+[.,]?\d*)"?', script.string)
+                if match_price:
+                    p_orig = float(match_price.group(1).replace(',', '.'))
+                    break
     except Exception:
         pass
+
+    # Tentativo 2: Tag generici di e-commerce
+    if not p_orig:
+        try:
+            prezzo_tag = soup.find(attrs={"itemprop": "price"})
+            if prezzo_tag:
+                p_orig = pulisci_prezzo(prezzo_tag.get('content') or prezzo_tag.text)
+        except Exception:
+            pass
+
+    # Tentativo 3: Il vecchio metodo aggiornato (cerca classi più ampie)
+    if not p_orig:
+        try:
+            contenitore = soup.find('div', {'data-controller': 'price'}) or soup.find('div', class_=re.compile('price', re.I))
+            if contenitore:
+                scont_tag = contenitore.find('span', class_=re.compile('tw-text-blue|tw-text-red|discount'))
+                orig_tag = contenitore.find('span', class_=re.compile('tw-line-through|original'))
+                if scont_tag:
+                    p_scont = pulisci_prezzo(scont_tag.text)
+                    p_orig = pulisci_prezzo(orig_tag.text) if orig_tag else p_scont
+                else:
+                    base_tag = contenitore.find('span', class_=re.compile('tw-font-bold|current'))
+                    p_orig = pulisci_prezzo(base_tag.text) if base_tag else None
+        except Exception:
+            pass
         
     return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
-
+    
 def estrai_callmewine(soup):
     is_stockout = False
     if soup and soup.text:
