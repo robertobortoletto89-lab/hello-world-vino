@@ -26,6 +26,8 @@ jobs:
 
       - name: Lancia il motore di Price Intelligence
         run: python bot_prezzi.py
+        env:
+          API_VINO: ${{ secrets.API_VINO }}
 
       - name: Salva i nuovi prezzi nel database storico
         run: |

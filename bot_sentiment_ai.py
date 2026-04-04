@@ -6,7 +6,8 @@ import time
 import os
 
 # --- 1. CONFIGURAZIONE API ---
-API_KEY = "AIzaSyAEWyUvlNJI0x17npClyS07LrU3DLLW8rw"
+import os
+api_key = os.environ.get("API_VINO")
 client = genai.Client(api_key=API_KEY)
 
 # --- 2. IL PROMPT DI INGEGNERIA ---
