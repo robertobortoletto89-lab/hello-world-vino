@@ -5,10 +5,16 @@ import json
 import time
 import os
 
-# --- 1. CONFIGURAZIONE API ---
-import os
-api_key = os.environ.get("API_VINO")
-client = genai.Client(api_key=API_KEY)
+# --- 1. SICUREZZA E SETUP API ---
+# Peschiamo la chiave in sicurezza dall'ambiente virtuale
+chiave_segreta = os.environ.get("API_VINO")
+
+# Check di sicurezza (la nostra rete di salvataggio)
+if not chiave_segreta:
+    raise ValueError("ALERT CRITICO: Chiave API_VINO mancante. Controlla i secret del Codespace!")
+
+# Inizializziamo il client AI di Google (Gemini) usando la chiave blindata
+client = genai.Client(api_key=chiave_segreta)
 
 # --- 2. IL PROMPT DI INGEGNERIA ---
 PROMPT_SISTEMA = """
@@ -24,6 +30,7 @@ Devi restituire ESCLUSIVAMENTE un oggetto JSON valido con questa esatta struttur
 Recensione da analizzare:
 """
 
+# --- 3. MOTORE DI ELABORAZIONE ---
 def elabora_sentiment():
     file_input = 'sentiment_vini_raw.csv'
     file_output = 'sentiment_vini_elaborato.csv'
@@ -33,7 +40,13 @@ def elabora_sentiment():
         return
 
     print("🧠 Avvio Motore Sentiment (Cruise Control + Salvataggio Incrementale)...")
+    
+    # Caricamento dati grezzi
     df_raw = pd.read_csv(file_input, sep=';', encoding='utf-8-sig', engine='python')
+    
+    # 🔥 IL FRENO A MANO PER IL TEST API (Protezione Budget) 🔥
+    df_raw = df_raw.head(100)
+    print(f"⚠️ MODALITÀ TEST ATTIVA: Verranno processate solo le prime {len(df_raw)} recensioni.")
     
     recensioni_gia_fatte = []
     if os.path.exists(file_output):
@@ -70,12 +83,13 @@ def elabora_sentiment():
                 else:
                     parole_estratte = dati_ia.get('parole_positive', '') + ", " + dati_ia.get('parole_negative', '')
 
+                # 🎯 ALLINEAMENTO DATABASE CORRETTO (Dizionario Dati) 🎯
                 record = {
                     'DATA_COMMENTO': row.get('DATA_COMMENTO'),
                     'ID_PRODOTTO': row.get('ID_PRODOTTO'),
                     'NOME_PRODOTTO': row.get('NOME_PRODOTTO'),
                     'CATEGORIA_PRODOTTO': row.get('CATEGORIA_PRODOTTO'),
-                    'SITO_ORIGINE': row.get('SITO_ORIGINE'),
+                    'SITO_ECOMMERCE': row.get('SITO_ECOMMERCE'), # Allineato col dizionario ufficiale
                     'RATING_ORIGINALE': row.get('RATING_ORIGINALE'),
                     'TESTO_ORIGINALE': testo_originale,
                     'TESTO_COMMENTO': dati_ia.get('testo_tradotto', testo_originale),
@@ -83,19 +97,19 @@ def elabora_sentiment():
                     'PAROLE_CHIAVE_ESTRATTE': parole_estratte.strip(', ')
                 }
                 
-                # --- LA VERA CASSAFORTE: Salvataggio Immediato ---
+                # --- LA VERA CASSAFORTE: Salvataggio Immediato (Append) ---
                 df_record = pd.DataFrame([record])
                 if not os.path.exists(file_output):
                     # Se il file non esiste, lo crea con le intestazioni
                     df_record.to_csv(file_output, sep=';', encoding='utf-8-sig', index=False)
                 else:
-                    # Se il file esiste, si "accoda" (mode='a') in fondo senza riscrivere le intestazioni
+                    # Se il file esiste, si "accoda" in fondo senza riscrivere le intestazioni
                     df_record.to_csv(file_output, sep=';', encoding='utf-8-sig', index=False, mode='a', header=False)
                 
                 print(f"   💾 Salvata con successo su disco.")
                 
                 successo = True
-                time.sleep(15) # Pausa di crociera
+                time.sleep(65) # Pausa di crociera per evitare blocchi rate-limit da Google
                 break 
                 
             except Exception as e:
