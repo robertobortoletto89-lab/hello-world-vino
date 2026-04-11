@@ -6,23 +6,37 @@ import numpy as np
 # --- CONFIGURAZIONE PAGINA BENTO-DARK ---
 st.set_page_config(page_title="Antigravity Wine OS", layout="wide")
 
-# --- CARICAMENTO DATABASE GLOBALE ---
-# Carica il calderone con tutti i dati di tutti i clienti
+# --- CARICAMENTO E JOIN DEI DATABASE ---
 @st.cache_data
 def load_data():
     try:
-        # Assicurati che il nome del file corrisponda a quello nel tuo Codespace
-        df = pd.read_csv("storico_prezzi.csv", sep=";") 
-    except FileNotFoundError:
-        st.error("⚠️ File 'storico_prezzi.csv' non trovato. Assicurati che sia caricato nel Codespace.")
+        # 1. Carica il motore dei prezzi
+        df_prezzi = pd.read_csv("storico_prezzi.csv", sep=";") 
+        
+        # 2. Carica l'anagrafica dei vini
+        df_vini = pd.read_csv("database_vini.csv", sep=";") 
+        
+        # 3. FILTRO CHIRURGICO: Prendiamo SOLO le chiavi e il Prezzo Base dall'anagrafica
+        # Questo evita che colonne doppie generino i suffissi _x e _y
+        df_vini_clean = df_vini[['CANTINA', 'NOME_PRODOTTO', 'PREZZO_BASE']]
+        
+        # 4. MERGE PULITO
+        df_merged = pd.merge(df_prezzi, df_vini_clean, on=['CANTINA', 'NOME_PRODOTTO'], how='left')
+        
+        return df_merged
+        
+    except FileNotFoundError as e:
+        st.error(f"⚠️ File mancante: {e}. Assicurati che i CSV siano nel Codespace.")
         return pd.DataFrame()
-    return df
-
+    except KeyError as e:
+        st.error(f"⚠️ Errore nelle colonne dell'anagrafica. Assicurati che database_vini.csv abbia CANTINA, NOME_PRODOTTO e PREZZO_BASE. Dettaglio: {e}")
+        return pd.DataFrame()
+# Richiama la funzione e crea il database
 df_completo = load_data()
 
 if df_completo.empty:
-    st.stop() # Ferma l'app se non ci sono dati
-
+    st.stop() # Ferma l'app in sicurezza se non ci sono dati
+    
 # --- SIDEBAR: L'IMBUTO DEI DATI E MENU ---
 st.sidebar.title("🍷 Antigravity OS")
 st.sidebar.markdown("---")
@@ -92,10 +106,10 @@ if not df_valid.empty:
     
     # Colori "Sicuri" (Nessun rosso, arancione, giallo o verde per le linee)
     safe_colors = ['#1f77b4', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#17becf', '#000080']
-    marketplaces = df_valid['SITO_ECOMMERCE'].unique()
+    marketplaces = df_valid['SITO_ORIGINE'].unique()
 
     for i, mp in enumerate(marketplaces):
-        df_mp = df_valid[df_valid['SITO_ECOMMERCE'] == mp].sort_values('DATA_RILEVAZIONE')
+        df_mp = df_valid[df_valid['SITO_ORIGINE'] == mp].sort_values('DATA_ESTRAZIONE')
         
         # Logica per i colori dei marker
         marker_colors = []
@@ -149,7 +163,7 @@ if not df_valid.empty:
 
         # Aggiungiamo la linea per il marketplace
         fig.add_trace(go.Scatter(
-            x=df_mp['DATA_RILEVAZIONE'], 
+            x=df_mp['DATA_ESTRAZIONE'], 
             y=df_mp['PREZZO_RILEVATO'],
             mode='lines+markers',
             name=mp,
@@ -201,7 +215,7 @@ if not df_valid.empty:
     wall_of_shame_data = []
     
     for mp in marketplaces:
-        df_mp = df_valid[df_valid['SITO_ECOMMERCE'] == mp]
+        df_mp = df_valid[df_valid['SITO_ORIGINE'] == mp]
         totale_rilevazioni = len(df_mp)
         
         if totale_rilevazioni > 0:
@@ -221,7 +235,6 @@ if not df_valid.empty:
                 "Giorni a Sconto": giorni_sconto,
                 "Giorni Stockout": giorni_stockout
             })
-
     if wall_of_shame_data:
         df_wall = pd.DataFrame(wall_of_shame_data)
         # Ordiniamo per chi fa più danni (Scostamento Negativo)
