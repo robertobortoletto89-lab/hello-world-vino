@@ -1,327 +1,231 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-import plotly.express as px
-from datetime import datetime
-from wordcloud import WordCloud
-import matplotlib.pyplot as plt
-import os
-import random
+import numpy as np
 
-# --- CONFIGURAZIONE PAGINA ---
-st.set_page_config(
-    page_title="WineTech Intelligence Suite",
-    page_icon="🍷",
-    layout="wide",
-    initial_sidebar_state="expanded"
-)
+# --- CONFIGURAZIONE PAGINA BENTO-DARK ---
+st.set_page_config(page_title="Antigravity Wine OS", layout="wide")
 
-# --- STILE CUSTOM (Bento Grid & UI) ---
-st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    html, body, [class*="css"] { font-family: 'Inter', sans-serif; background-color: #ffffff; }
-    .main { background-color: #ffffff; }
-    .bento-card { background-color: #f8f9fa; border-radius: 16px; padding: 24px; border: 1px solid #f1f3f5; box-shadow: 0 2px 4px rgba(0,0,0,0.02); height: 100%; display: flex; flex-direction: column; justify-content: center; margin-bottom: 20px; }
-    .kpi-label { color: #6c757d; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
-    .kpi-value { color: #212529; font-size: 1.8rem; font-weight: 700; }
-    .kpi-delta { font-size: 0.9rem; margin-top: 4px; }
-    .header-title { font-weight: 700; color: #1a1a1a; margin-bottom: 2rem; }
-    .module-header { color: #6a0dad; font-weight: bold; }
-    </style>
-    """, unsafe_allow_html=True)
-
-# --- MOCK LOGIN SYSTEM ---
-def check_login():
-    if 'ruolo' not in st.session_state: st.session_state['ruolo'] = 'Admin' 
-    return st.session_state['ruolo']
-
-# --- FUNZIONI CARICAMENTO DATI ---
-@st.cache_data(ttl=600)
-def carica_dati_prezzi():
-    if not os.path.exists('database_vini.csv') or not os.path.exists('storico_prezzi.csv'):
-        st.error("⚠️ File CSV mancanti. Verifica che 'database_vini.csv' e 'storico_prezzi.csv' esistano.")
-        return pd.DataFrame()
-
+# --- CARICAMENTO DATABASE GLOBALE ---
+# Carica il calderone con tutti i dati di tutti i clienti
+@st.cache_data
+def load_data():
     try:
-        # 1. Caricamento Master Vini
-        df_vini = pd.read_csv('database_vini.csv', sep=';', encoding='utf-8-sig', engine='python')
-        df_vini.columns = df_vini.columns.str.strip().str.upper()
-        if 'PREZZO_BASE' in df_vini.columns:
-            df_vini['PREZZO_BASE'] = pd.to_numeric(df_vini['PREZZO_BASE'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-        
-        colonne_utili = ['CANTINA', 'NOME_PRODOTTO']
-        if 'PREZZO_BASE' in df_vini.columns: colonne_utili.append('PREZZO_BASE')
-        if 'URL_IMMAGINE' in df_vini.columns: colonne_utili.append('URL_IMMAGINE')
-        df_vini_master = df_vini[colonne_utili].drop_duplicates(subset=['CANTINA', 'NOME_PRODOTTO']).copy()
-
-        # 2. Caricamento Storico Prezzi
-        df_prezzi = pd.read_csv('storico_prezzi.csv', sep=';', encoding='utf-8-sig', engine='python')
-        df_prezzi.columns = df_prezzi.columns.str.strip().str.upper()
-        df_prezzi['DATA_ESTRAZIONE'] = pd.to_datetime(df_prezzi['DATA_ESTRAZIONE'], format='%d/%m/%Y', errors='coerce')
-        
-        # 3. Merge Relazionale sulla Chiave Composta
-        df = pd.merge(df_prezzi, df_vini_master, on=['CANTINA', 'NOME_PRODOTTO'], how='left')
-        df['PREZZO_RILEVATO'] = pd.to_numeric(df['PREZZO_RILEVATO'].astype(str).str.replace(',', '.'), errors='coerce').fillna(0)
-            
-        return df
-    except Exception as e:
-        st.error(f"Errore di formattazione nei CSV. Dettaglio: {e}")
+        # Assicurati che il nome del file corrisponda a quello nel tuo Codespace
+        df = pd.read_csv("storico_prezzi.csv", sep=";") 
+    except FileNotFoundError:
+        st.error("⚠️ File 'storico_prezzi.csv' non trovato. Assicurati che sia caricato nel Codespace.")
         return pd.DataFrame()
+    return df
 
-@st.cache_data(ttl=600)
-def carica_dati_sentiment(df_prezzi_master):
-    file_elaborato = 'sentiment_vini_elaborato.csv'
-    file_grezzo = 'sentiment_vini_raw.csv'
+df_completo = load_data()
+
+if df_completo.empty:
+    st.stop() # Ferma l'app se non ci sono dati
+
+# --- SIDEBAR: L'IMBUTO DEI DATI E MENU ---
+st.sidebar.title("🍷 Antigravity OS")
+st.sidebar.markdown("---")
+
+# 1. Pannello Admin: Selezione Cantina
+if 'CANTINA' in df_completo.columns:
+    cantine_disponibili = df_completo['CANTINA'].dropna().unique().tolist()
+else:
+    st.sidebar.error("Errore: Colonna 'CANTINA' mancante nel database.")
+    st.stop()
+
+cantina_selezionata = st.sidebar.selectbox("🏢 Seleziona Cantina (Admin)", cantine_disponibili)
+
+# Filtriamo il database in tempo reale lasciando SOLO i dati della cantina scelta
+df_cantina = df_completo[df_completo['CANTINA'] == cantina_selezionata]
+
+# 2. Selezione Bottiglia (dinamica in base alla Cantina)
+if 'NOME_PRODOTTO' in df_cantina.columns:
+    bottiglie_disponibili = df_cantina['NOME_PRODOTTO'].dropna().unique().tolist()
+else:
+    st.sidebar.error("Errore: Colonna 'NOME_PRODOTTO' mancante nel database.")
+    st.stop()
     
-    df = pd.DataFrame()
-    try:
-        # Cerca il file con le recensioni già elaborate
-        if os.path.exists(file_elaborato):
-            df = pd.read_csv(file_elaborato, sep=';', encoding='utf-8-sig', engine='python')
-        elif os.path.exists(file_grezzo):
-            st.sidebar.success("🤖 UI Mode: Sentiment simulato dal file grezzo per test grafico.")
-            df = pd.read_csv(file_grezzo, sep=';', encoding='utf-8-sig', engine='python')
-            df['SENTIMENT_SCORE'] = [random.choice(['Positivo', 'Positivo', 'Positivo', 'Neutro', 'Negativo']) for _ in range(len(df))]
-            def simula_parole(score):
-                if score == 'Positivo': return "fruttato, elegante, profumo, eccezionale, ottimo, perlage"
-                elif score == 'Negativo': return "acido, costoso, delusione, piatto, chiuso"
-                else: return "beverino, normale, semplice"
-            df['PAROLE_CHIAVE_ESTRATTE'] = df['SENTIMENT_SCORE'].apply(simula_parole)
-        else:
-            return pd.DataFrame()
+bottiglia_selezionata = st.sidebar.selectbox("🍾 Cerca Bottiglia", bottiglie_disponibili)
 
-        df.columns = df.columns.str.strip().str.upper()
-        
-        # Usa il nuovo campo DATA_COMMENTO
-        if 'DATA_COMMENTO' in df.columns:
-            df['DATA_COMMENTO'] = pd.to_datetime(df['DATA_COMMENTO'], errors='coerce').dt.date
-        else:
-            df['DATA_COMMENTO'] = datetime.today().date()
-            
-        # Incrocia la Cantina usando la mappa del Master se manca nel sentiment
-        if not df_prezzi_master.empty and 'CANTINA' not in df.columns and 'NOME_PRODOTTO' in df.columns:
-            mappa_cantine = df_prezzi_master[['NOME_PRODOTTO', 'CANTINA']].drop_duplicates().set_index('NOME_PRODOTTO')['CANTINA'].to_dict()
-            df['CANTINA'] = df['NOME_PRODOTTO'].map(mappa_cantine).fillna('Cantina Sconosciuta')
-            
-        return df
-    except Exception as e:
-        st.error(f"Errore diagnostico nel sentiment: {e}")
-        return pd.DataFrame()
+# --- IL DATO ISOLATO ---
+# Creiamo il dataframe specifico per la bottiglia selezionata
+df_vino = df_cantina[df_cantina['NOME_PRODOTTO'] == bottiglia_selezionata]
 
-def format_euro(valore):
-    if pd.isna(valore) or valore == 0: return "N/D"
-    return f"€ {valore:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+st.sidebar.markdown("---")
+# Pulsante Reset Filtri
+if st.sidebar.button("🔄 Reset Filtri"):
+    st.rerun()
 
-# --- UI COMPONENTS ---
-def bento_metric(label, value, delta=None, delta_color="normal"):
-    delta_html = ""
-    if delta:
-        color = "#28a745" if delta_color == "normal" else "#dc3545"
-        delta_html = f'<div class="kpi-delta" style="color: {color};">{delta}</div>'
-    st.markdown(f'<div class="bento-card"><div class="kpi-label">{label}</div><div class="kpi-value">{value}</div>{delta_html}</div>', unsafe_allow_html=True)
+# ==========================================
+# --- SEZIONE 1: PRICE INTELLIGENCE ---
+# ==========================================
+st.title(cantina_selezionata)
+st.subheader(f"{bottiglia_selezionata}")
+st.markdown("---")
 
-# --- MODULO 1: PRICE INTELLIGENCE ---
-def render_price_module(df_raw, cantina_scelta):
-    df_cantina = df_raw[df_raw['CANTINA'] == cantina_scelta].copy()
-    if df_cantina.empty:
-        st.warning(f"Nessun dato trovato per la cantina {cantina_scelta}.")
-        return
-        
-    vini = sorted(df_cantina['NOME_PRODOTTO'].dropna().unique())
-    if not vini: return
-    vino_scelto = st.sidebar.selectbox("Seleziona Bottiglia", vini, index=0)
-    
-    min_date = df_cantina['DATA_ESTRAZIONE'].min()
-    max_date = df_cantina['DATA_ESTRAZIONE'].max()
-    if pd.isna(min_date): min_date = datetime.now()
-    if pd.isna(max_date): max_date = datetime.now()
-    
-    date_range = st.sidebar.date_input("Periodo DA - A", value=(min_date.date(), max_date.date()), min_value=min_date.date(), max_value=max_date.date(), key="date_price")
+# 1. Pulizia dei dati (esclusione zeri)
+df_valid = df_vino[df_vino['PREZZO_RILEVATO'] > 0].copy()
 
-    st.markdown(f'<h1 class="header-title">Price Intelligence: {vino_scelto}</h1>', unsafe_allow_html=True)
+if not df_valid.empty:
+    # --- CALCOLO KPI IN ALTO ---
+    prezzo_base = df_valid['PREZZO_BASE'].iloc[0] # Assumiamo sia costante per la bottiglia
+    prezzo_medio = df_valid['PREZZO_RILEVATO'].mean()
+    devianza = (prezzo_medio / prezzo_base) - 1
 
-    df_f = df_cantina[df_cantina['NOME_PRODOTTO'] == vino_scelto].copy()
-    if isinstance(date_range, tuple) and len(date_range) == 2:
-        df_f = df_f[(df_f['DATA_ESTRAZIONE'].dt.date >= date_range[0]) & (df_f['DATA_ESTRAZIONE'].dt.date <= date_range[1])]
+    # Creazione dei 3 Box KPI in alto (Stile Bento-Light)
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric(label="PREZZO BASE", value=f"€ {prezzo_base:,.2f}")
+    with col2:
+        st.metric(label="PREZZO MEDIO", value=f"€ {prezzo_medio:,.2f}")
+    with col3:
+        # Mostriamo la devianza in percentuale
+        st.metric(label="DEVIANZA %", value=f"{devianza * 100:,.1f} %")
 
-    if df_f.empty:
-        st.info("Nessun dato disponibile per i filtri selezionati.")
-        return
-
-    col_main, col_kpi1, col_kpi2, col_kpi3 = st.columns([2.5, 1, 1, 1])
-    ultimo_dato = df_f.sort_values('DATA_ESTRAZIONE').iloc[-1]
-    prezzo_base = ultimo_dato.get('PREZZO_BASE', 0)
-    prezzo_medio = df_f['PREZZO_RILEVATO'].mean()
-    devianza = ((prezzo_medio - prezzo_base) / prezzo_base * 100) if prezzo_base and prezzo_base != 0 else 0
-
-    with col_main:
-        img_url = ultimo_dato.get('URL_IMMAGINE', 'https://via.placeholder.com/150?text=No+Image')
-        if pd.isna(img_url): img_url = 'https://via.placeholder.com/150?text=No+Image'
-        st.markdown('<div class="bento-card">', unsafe_allow_html=True)
-        inner_img, inner_txt = st.columns([1, 2.5])
-        with inner_img: st.image(img_url, use_container_width=True)
-        with inner_txt:
-            st.markdown(f'<div style="margin-top: 10px;"><div style="color: #6c757d; font-size: 0.85rem; font-weight: 600; text-transform: uppercase;">{cantina_scelta}</div><div style="font-weight: 700; font-size: 1.4rem; margin-bottom: 8px; color: #1a1a1a;">{vino_scelto}</div><div style="color: #495057; font-size: 1rem; margin-bottom: 4px;">Formato: 750ml</div><div style="color: #495057; font-size: 1rem;">Prezzo Base: <b>{format_euro(prezzo_base)}</b></div></div>', unsafe_allow_html=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_kpi1: bento_metric("Prezzo Base", format_euro(prezzo_base))
-    with col_kpi2: bento_metric("Prezzo Medio", format_euro(prezzo_medio))
-    with col_kpi3: 
-        color = "normal" if devianza >= 0 else "inverse"
-        bento_metric("Devianza %", f"{devianza:+.1f}%", delta_color=color)
-
-    st.markdown('<div class="bento-card" style="padding: 20px;">', unsafe_allow_html=True)
-    df_plot = df_f.copy()
-    df_plot['Data_Str'] = df_plot['DATA_ESTRAZIONE'].dt.strftime('%d/%m')
-    df_plot = df_plot.sort_values('DATA_ESTRAZIONE')
-    df_plot['Colore'] = df_plot['PREZZO_RILEVATO'].apply(lambda x: '#dc3545' if x < prezzo_base else '#4a90e2')
-
-    fig = go.Figure()
-    for sito in df_plot['SITO_ORIGINE'].dropna().unique():
-        df_sito = df_plot[df_plot['SITO_ORIGINE'] == sito]
-        fig.add_trace(go.Bar(x=df_sito['Data_Str'], y=df_sito['PREZZO_RILEVATO'], name=str(sito), marker_color=df_sito['Colore'], hovertemplate="<b>%{fullData.name}</b><br>Prezzo: €%{y:.2f}<br>Data: %{x}<extra></extra>"))
-
-    fig.add_hline(y=prezzo_base, line_dash="dash", line_color="#333", annotation_text=f"Prezzo Base ({format_euro(prezzo_base)})", annotation_position="top left")
-    fig.update_layout(title="Andamento Prezzi per Marketplace (Barre Rosse = Sottocosto)", xaxis_title="", yaxis_title="Prezzo (€)", yaxis_range=[0, max(df_plot['PREZZO_RILEVATO'].max(), prezzo_base) * 1.2], barmode='group', template="plotly_white", height=450, margin=dict(l=20, r=20, t=60, b=20), legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1))
-    st.plotly_chart(fig, use_container_width=True)
-    st.markdown('</div>', unsafe_allow_html=True)
-
-    col_scostamento, col_wos = st.columns([1, 1])
-    with col_scostamento:
-        totale_combinazioni = len(df_f)
-        sottocosto = len(df_f[df_f['PREZZO_RILEVATO'] < prezzo_base])
-        perc_scostamento = (sottocosto / totale_combinazioni * 100) if totale_combinazioni > 0 else 0
-        delta_assoluto = (prezzo_medio - prezzo_base)
-        st.markdown(f'<div class="bento-card"><div class="kpi-label">% SCOSTAMENTO (SOTTOCOSTO)</div><div class="kpi-value">{perc_scostamento:.1f}%</div><div class="kpi-delta" style="color: {"#dc3545" if delta_assoluto < 0 else "#28a745"};">Delta Medio: {format_euro(delta_assoluto)}</div></div>', unsafe_allow_html=True)
-
-    with col_wos:
-        st.markdown('<div class="bento-card">', unsafe_allow_html=True)
-        st.markdown('<div class="kpi-label">🚩 Wall of Shame (Incidenza Sottocosto)</div>', unsafe_allow_html=True)
-        wos = df_f.groupby('SITO_ORIGINE').apply(lambda x: (x['PREZZO_RILEVATO'] < prezzo_base).mean() * 100).reset_index()
-        wos.columns = ['Marketplace', '% Sottocosto']
-        wos = wos.sort_values('% Sottocosto', ascending=False)
-        st.dataframe(wos.style.format({'% Sottocosto': '{:.1f}%'}), hide_index=True, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-# --- MODULO 2: SENTIMENT ANALYSIS ---
-def render_sentiment_module(df_sent, cantina_scelta):
-    if df_sent.empty:
-        st.warning("Nessun dato di Sentiment trovato.")
-        return
-
-    if 'NOME_PRODOTTO' not in df_sent.columns:
-        st.error(f"⚠️ Errore critico nel CSV del Sentiment. Colonne trovate: {df_sent.columns.tolist()}.")
-        return
-
-    df_cantina_sent = df_sent[df_sent['CANTINA'] == cantina_scelta]
-    if df_cantina_sent.empty:
-         st.warning(f"Nessun dato di Sentiment elaborato per la cantina {cantina_scelta}.")
-         return
-
-    vini_disponibili = df_cantina_sent['NOME_PRODOTTO'].dropna().unique()
-    vino_selezionato = st.sidebar.selectbox("Cerca bottiglia", vini_disponibili)
-    
-    start_date = st.sidebar.date_input("Da", value=pd.to_datetime("2023-01-01"), key="start_sent")
-    end_date = st.sidebar.date_input("A", value=datetime.today(), key="end_sent")
-
-    mask = (df_cantina_sent['NOME_PRODOTTO'] == vino_selezionato) & (df_cantina_sent['DATA_COMMENTO'] >= start_date) & (df_cantina_sent['DATA_COMMENTO'] <= end_date)
-    df_filtered = df_cantina_sent.loc[mask]
-
-    st.markdown(f'<h1 class="header-title module-header">Sentiment Analysis: {vino_selezionato}</h1>', unsafe_allow_html=True)
-
-    col_img, col_info = st.columns([1, 4])
-    with col_img: st.image("https://images.vivino.com/thumbs/14a9Y04fT1a-W3Xq0P5uAw_pb_x960.png", width=80)
-    with col_info:
-        st.markdown(f"**Cantina:** {cantina_scelta}")
-        st.markdown(f"**Vino:** {vino_selezionato}")
-        st.markdown("*Analisi Semantica basata sulle recensioni dirette dei consumatori.*")
-    
     st.markdown("---")
 
-    if not df_filtered.empty:
-        tot_commenti = len(df_filtered)
+    # --- GRAFICO DI TENDENZA (PLOTLY) ---
+    st.subheader("Andamento Prezzi per Marketplace")
+    
+    fig = go.Figure()
+    
+    # Colori "Sicuri" (Nessun rosso, arancione, giallo o verde per le linee)
+    safe_colors = ['#1f77b4', '#9467bd', '#8c564b', '#e377c2', '#7f7f7f', '#17becf', '#000080']
+    marketplaces = df_valid['SITO_ECOMMERCE'].unique()
+
+    for i, mp in enumerate(marketplaces):
+        df_mp = df_valid[df_valid['SITO_ECOMMERCE'] == mp].sort_values('DATA_RILEVAZIONE')
         
-        perc_positivi = len(df_filtered[df_filtered['SENTIMENT_SCORE'] == 'Positivo']) / tot_commenti * 100 if 'SENTIMENT_SCORE' in df_filtered.columns else 0
-        perc_negativi = len(df_filtered[df_filtered['SENTIMENT_SCORE'] == 'Negativo']) / tot_commenti * 100 if 'SENTIMENT_SCORE' in df_filtered.columns else 0
-        perc_neutri = len(df_filtered[df_filtered['SENTIMENT_SCORE'] == 'Neutro']) / tot_commenti * 100 if 'SENTIMENT_SCORE' in df_filtered.columns else 0
+        # Logica per i colori dei marker
+        marker_colors = []
+        marker_lines = []
+        marker_line_widths = []
+        
+        for _, row in df_mp.iterrows():
+            # Condizione 1: Stockout = Nero
+            if str(row.get('STOCKOUT', '')).strip().lower() == 'si':
+                marker_colors.append('black')
+                marker_lines.append('black')
+                marker_line_widths.append(1)
+            # Condizione 2: Sotto Prezzo Base = Rosso
+            elif row['PREZZO_RILEVATO'] < prezzo_base:
+                marker_colors.append('red')
+                # Condizione 2b: Sotto costo + Scontato = Rosso con alone (bordo) Giallo
+                if pd.notna(row.get('PREZZO_SCONTATO')) and str(row.get('PREZZO_SCONTATO')).strip() != '':
+                    marker_lines.append('yellow')
+                    marker_line_widths.append(3) # Alone più spesso
+                else:
+                    marker_lines.append('red')
+                    marker_line_widths.append(1)
+            # Condizione 3: Scontato ma sopra il prezzo base = Colore standard ma alone giallo
+            elif pd.notna(row.get('PREZZO_SCONTATO')) and str(row.get('PREZZO_SCONTATO')).strip() != '':
+                 marker_colors.append(safe_colors[i % len(safe_colors)])
+                 marker_lines.append('yellow')
+                 marker_line_widths.append(3)
+            # Condizione 4: Normale = Colore standard
+            else:
+                marker_colors.append(safe_colors[i % len(safe_colors)])
+                marker_lines.append(safe_colors[i % len(safe_colors)])
+                marker_line_widths.append(1)
 
-        col1, col2, col3 = st.columns(3)
-        with col1: st.markdown(f"<div class='bento-card'><div class='kpi-label'>Totale Commenti</div><div class='kpi-value'>{tot_commenti}</div></div>", unsafe_allow_html=True)
-        with col2: st.markdown(f"<div class='bento-card'><h3>Sentiment Breakdown</h3>🟢 <b>Positivi:</b> {perc_positivi:.1f}%<br>🔴 <b>Negativi:</b> {perc_negativi:.1f}%<br>⚪ <b>Neutri:</b> {perc_neutri:.1f}%</div>", unsafe_allow_html=True)
-        with col3: st.markdown(f"<div class='bento-card'><h3>Origine Dati</h3><img src='https://www.vivino.com/apple-touch-icon.png' width='40'><br><b>Vivino:</b> {tot_commenti} recensioni</div>", unsafe_allow_html=True)
+        # Creazione Tooltip Custom
+        custom_hovertemplate = (
+            "<b>%{text}</b><br>" +
+            "Data: %{x}<br>" +
+            "Prezzo Rilevato: €%{y:.2f}<br>" +
+            "<i>%{customdata}</i><extra></extra>"
+        )
+        
+        # Generiamo il testo aggiuntivo per il tooltip (Sconti e Stockout)
+        custom_data = []
+        for _, row in df_mp.iterrows():
+            note = ""
+            if pd.notna(row.get('PREZZO_SCONTATO')) and str(row.get('PREZZO_SCONTATO')).strip() != '':
+                note += "⚠️ Prezzo a Sconto<br>"
+            if str(row.get('STOCKOUT', '')).strip().lower() == 'si':
+                note += "⛔ STOCKOUT"
+            custom_data.append(note)
 
-        st.markdown("<div class='bento-card'><h3>Sentiment over time</h3>", unsafe_allow_html=True)
-        if 'SENTIMENT_SCORE' in df_filtered.columns:
-            df_filtered['MESE_ANNO'] = pd.to_datetime(df_filtered['DATA_COMMENTO']).dt.to_period('M').astype(str)
-            trend_data = df_filtered.groupby(['MESE_ANNO', 'SENTIMENT_SCORE']).size().reset_index(name='Conteggio')
-            fig_trend = px.line(trend_data, x='MESE_ANNO', y='Conteggio', color='SENTIMENT_SCORE', color_discrete_map={"Positivo": "#2ecc71", "Negativo": "#e74c3c", "Neutro": "#95a5a6"}, markers=True)
-            fig_trend.update_layout(xaxis_title="Tempo", yaxis_title="Numero Commenti", plot_bgcolor="rgba(0,0,0,0)")
-            st.plotly_chart(fig_trend, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+        # Aggiungiamo la linea per il marketplace
+        fig.add_trace(go.Scatter(
+            x=df_mp['DATA_RILEVAZIONE'], 
+            y=df_mp['PREZZO_RILEVATO'],
+            mode='lines+markers',
+            name=mp,
+            line=dict(color=safe_colors[i % len(safe_colors)], width=2),
+            marker=dict(
+                size=10,
+                color=marker_colors,
+                line=dict(color=marker_lines, width=marker_line_widths)
+            ),
+            text=[mp] * len(df_mp), # Nome marketplace per il tooltip
+            customdata=custom_data,
+            hovertemplate=custom_hovertemplate
+        ))
 
-        col_wc1, col_wc2 = st.columns(2)
-        def genera_wordcloud(testo, colormap):
-            if not testo: return None
-            wc = WordCloud(width=400, height=200, background_color="#f8f9fa", colormap=colormap).generate(testo)
-            fig, ax = plt.subplots()
-            ax.imshow(wc, interpolation="bilinear")
-            ax.axis("off")
-            fig.patch.set_facecolor('#f8f9fa')
-            return fig
+    # Aggiungiamo la linea tratteggiata del Prezzo Base
+    fig.add_hline(y=prezzo_base, line_dash="dash", line_color="white", annotation_text=f"Prezzo Base (€ {prezzo_base})")
 
-        if 'PAROLE_CHIAVE_ESTRATTE' in df_filtered.columns and 'SENTIMENT_SCORE' in df_filtered.columns:
-            kw_positive = " ".join(df_filtered[df_filtered['SENTIMENT_SCORE'] == 'Positivo']['PAROLE_CHIAVE_ESTRATTE'].dropna().str.replace(',', ' '))
-            kw_negative = " ".join(df_filtered[df_filtered['SENTIMENT_SCORE'] == 'Negativo']['PAROLE_CHIAVE_ESTRATTE'].dropna().str.replace(',', ' '))
+    fig.update_layout(
+        xaxis_title="Data",
+        yaxis_title="Prezzo (€)",
+        hovermode="x unified",
+        template="plotly_dark", # Attivato tema scuro nativo di Plotly
+        plot_bgcolor="rgba(0,0,0,0)", # Sfondo trasparente per fondersi col Bento
+        paper_bgcolor="rgba(0,0,0,0)"
+    )
+    
+    st.plotly_chart(fig, use_container_width=True)
+
+    st.markdown("---")
+
+    # --- TABELLE DI DETTAGLIO E WALL OF SHAME ---
+    st.subheader("Wall of Shame (Incidenza Sottocosto)")
+
+    # Calcoli globali
+    sottocosto_df = df_valid[df_valid['PREZZO_RILEVATO'] < prezzo_base]
+    
+    if not df_valid.empty:
+        scostamento_totale_perc = (len(sottocosto_df) / len(df_valid)) * 100
+        if not sottocosto_df.empty:
+            delta_medio_totale = (sottocosto_df['PREZZO_RILEVATO'] - prezzo_base).mean()
         else:
-            kw_positive = kw_negative = ""
+            delta_medio_totale = 0
             
-        with col_wc1:
-            st.markdown("<div class='bento-card'><h3>Motivazioni d'Acquisto (Positive)</h3>", unsafe_allow_html=True)
-            if kw_positive: st.pyplot(genera_wordcloud(kw_positive, "Greens"))
-            else: st.info("Dati insufficienti.")
-            st.markdown("</div>", unsafe_allow_html=True)
+        colA, colB = st.columns(2)
+        colA.metric("% SCOSTAMENTO (SOTTOCOSTO)", f"{scostamento_totale_perc:.1f}%")
+        colB.metric("DELTA MEDIO SOTTOCOSTO", f"€ {delta_medio_totale:.2f}")
+
+    # Costruzione tabella Wall of Shame
+    wall_of_shame_data = []
+    
+    for mp in marketplaces:
+        df_mp = df_valid[df_valid['SITO_ECOMMERCE'] == mp]
+        totale_rilevazioni = len(df_mp)
+        
+        if totale_rilevazioni > 0:
+            df_mp_sotto = df_mp[df_mp['PREZZO_RILEVATO'] < prezzo_base]
+            sottocosto_count = len(df_mp_sotto)
+            scost_perc = (sottocosto_count / totale_rilevazioni) * 100
             
-        with col_wc2:
-            st.markdown("<div class='bento-card'><h3>Criticità Rilevate (Negative)</h3>", unsafe_allow_html=True)
-            if kw_negative: st.pyplot(genera_wordcloud(kw_negative, "Reds"))
-            else: st.info("Dati insufficienti.")
-            st.markdown("</div>", unsafe_allow_html=True)
-    else:
-        st.warning("Nessuna recensione trovata per il periodo e l'etichetta selezionata.")
+            delta_medio = (df_mp_sotto['PREZZO_RILEVATO'] - prezzo_base).mean() if sottocosto_count > 0 else 0
+            
+            giorni_sconto = df_mp[df_mp['PREZZO_SCONTATO'].notna() & (df_mp['PREZZO_SCONTATO'] != '')].shape[0]
+            giorni_stockout = df_mp[df_mp['STOCKOUT'].astype(str).str.strip().str.lower() == 'si'].shape[0]
+            
+            wall_of_shame_data.append({
+                "Marketplace": mp,
+                "% Scostamento Negativo": f"{scost_perc:.1f}%",
+                "Delta Medio": f"€ {delta_medio:.2f}",
+                "Giorni a Sconto": giorni_sconto,
+                "Giorni Stockout": giorni_stockout
+            })
 
-# --- MAIN APP LOGIC ---
-def main():
-    ruolo_utente = check_login()
-    st.sidebar.markdown("## Pannello di Controllo")
-    st.sidebar.markdown(f"**Utente:** {ruolo_utente}")
-    st.sidebar.markdown("---")
-    
-    modulo_scelto = st.sidebar.radio("Scegli Applicativo:", ["📊 Price Intelligence", "💬 Sentiment Analysis"])
-    st.sidebar.markdown("---")
-
-    df_raw = carica_dati_prezzi()
-    df_sent = carica_dati_sentiment(df_raw)
-    
-    if df_raw.empty:
-        return
-
-    cantine_disponibili = sorted(df_raw['CANTINA'].dropna().unique())
-
-    if ruolo_utente == 'Admin':
-        st.sidebar.header("Impostazioni Admin")
-        cantina_scelta = st.sidebar.selectbox("Filtra per Cantina Cliente", cantine_disponibili)
-    else:
-        cantina_scelta = ruolo_utente
-        if cantina_scelta not in cantine_disponibili:
-            st.error("Nessun dato assegnato al tuo account.")
-            return
-
-    st.sidebar.header("🔍 Filtri di Analisi")
-    if modulo_scelto == "📊 Price Intelligence":
-        render_price_module(df_raw, cantina_scelta)
-    else:
-        render_sentiment_module(df_sent, cantina_scelta)
-
-if __name__ == "__main__":
-    main()
+    if wall_of_shame_data:
+        df_wall = pd.DataFrame(wall_of_shame_data)
+        # Ordiniamo per chi fa più danni (Scostamento Negativo)
+        df_wall = df_wall.sort_values(by='% Scostamento Negativo', ascending=False)
+        st.dataframe(df_wall, use_container_width=True, hide_index=True)
+else:
+    st.info("Nessun dato valido superiore a 0€ trovato per i filtri selezionati.")
