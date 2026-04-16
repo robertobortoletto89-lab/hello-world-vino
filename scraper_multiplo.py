@@ -5,13 +5,10 @@ import random # Aggiungiamo un pizzico di imprevedibilità umana
 from datetime import datetime
 import os
 import cloudscraper # IL NOSTRO GRIMALDELLO
+from curl_cffi import requests as stealth_requests
 
 # --- 1. LA TUA LISTA DELLA SPESA (Aggiungi qui le altre bottiglie) ---
 vini_da_estrarre = [
-    {"WINE_ID": "8195", "NOME_PRODOTTO": "Amarone della Valpolicella Classico DOCG", "ID_PRODOTTO": "AG-AMAR-VP-01",},
-    {"WINE_ID": "7876211", "NOME_PRODOTTO": "Lugana Oasi Mantellina DOC", "ID_PRODOTTO": "AG-LUGA-VP-01",},
-    {"WINE_ID": "8190", "NOME_PRODOTTO": "La Poja - Corvina Veronese IGT", "ID_PRODOTTO": "AG-ROVE-CF-01",},
-    {"WINE_ID": "1223973", "NOME_PRODOTTO": "Valdobbiadene Prosecco Superiore DOCG Brut", "ID_PRODOTTO": "SM-PROS-BR-01",},
     {"WINE_ID": "8902890", "NOME_PRODOTTO": "Vino Spumante Brut Rosé", "ID_PRODOTTO": "SM-SPUM-BR-01",},
     {"WINE_ID": "1497432", "NOME_PRODOTTO": "Valdobbiadene Prosecco Superiore DOCG Extra Dry", "ID_PRODOTTO": "SM-PROS-ED-01",},
     {"WINE_ID": "10309", "NOME_PRODOTTO": "Valpolicella Ripasso Superiore DOC", "ID_PRODOTTO": "ZN-VALP-RS-01",},
@@ -35,13 +32,13 @@ def estrai_recensioni_vivino(vino, max_reviews=100):
         url = f"https://www.vivino.com/api/wines/{vino['WINE_ID']}/reviews?per_page=25&page={page}"
         
         try:
-            # Usiamo 'scraper.get' invece del vecchio 'requests.get'
-            response = scraper.get(url, headers=HEADERS)
+            # Usiamo curl_cffi per ingannare le impronte crittografiche
+            response = stealth_requests.get(url, headers=HEADERS, impersonate="chrome110")
             
             if response.status_code != 200:
-                print(f"⚠️ Errore {response.status_code}. Vivino ha alzato gli scudi. Mi fermo per questa bottiglia.")
+                print(f"⚠️ Errore {response.status_code}. Muro impenetrabile.")
                 break
-                
+
             data = response.json()
             reviews = data.get("reviews", [])
             
