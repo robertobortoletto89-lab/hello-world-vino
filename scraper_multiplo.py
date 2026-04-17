@@ -93,13 +93,20 @@ if tutte_le_recensioni:
         try:
             df_storico = pd.read_csv(file_csv, sep=';', encoding='utf-8-sig')
             df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
-            # Rimuoviamo eventuali recensioni identiche salvate per sbaglio due volte
             df_finale = df_finale.drop_duplicates(subset=['DATA_COMMENTO', 'NOME_PRODOTTO', 'TESTO_ORIGINALE'])
+            df_finale.to_csv(file_csv, index=False, sep=';', encoding='utf-8-sig')
+            print(f"\n✅ OPERAZIONE COMPLETATA! Salvate {len(df_finale)} recensioni in {file_csv}")
+            
         except Exception as e:
-            df_finale = df_nuovi
+            # IL SALVAVITA: Se non riesce a leggere, crea un file a parte!
+            file_emergenza = f"sentiment_EMERGENZA_{datetime.now().strftime('%H%M%S')}.csv"
+            df_nuovi.to_csv(file_emergenza, index=False, sep=';', encoding='utf-8-sig')
+            print(f"\n🚨 ERRORE CRITICO in lettura del vecchio file: {e}")
+            print(f"⚠️ Per non sovrascrivere, ho salvato i nuovi dati in: {file_emergenza}")
     else:
-        df_finale = df_nuovi
-        
+        df_nuovi.to_csv(file_csv, index=False, sep=';', encoding='utf-8-sig')
+        print(f"\n✅ OPERAZIONE COMPLETATA! File creato da zero con {len(df_nuovi)} recensioni.")
+               
     df_finale.to_csv(file_csv, index=False, sep=';', encoding='utf-8-sig')
     print(f"\n✅ OPERAZIONE COMPLETATA! Salvate {len(tutte_le_recensioni)} recensioni in {file_csv}")
 else:
