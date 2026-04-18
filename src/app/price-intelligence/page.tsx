@@ -8,14 +8,16 @@ import {
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info } from "lucide-react";
 
 interface ProductInfo {
+  ID_PRODOTTO: string;
   CANTINA: string;
-  NOME_PRODOTTO: string;
+  VINO: string;
   PREZZO_BASE: number;
-  URL_IMMAGINE: string;
+  IMM_URL: string;
 }
 
 interface PriceHistory {
   DATA_ESTRAZIONE: string;
+  ID_PRODOTTO: string;
   CANTINA: string;
   NOME_PRODOTTO: string;
   SITO_ORIGINE: string;
@@ -27,7 +29,7 @@ interface PriceHistory {
 const PriceIntelligence = () => {
   const [products, setProducts] = useState<ProductInfo[]>([]);
   const [history, setHistory] = useState<PriceHistory[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string>("");
+  const [selectedProductId, setSelectedProductId] = useState<string>("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,14 +38,19 @@ const PriceIntelligence = () => {
         const productsData = await parseCSV<ProductInfo>("/data/database_vini.csv");
         const historyData = await parseCSV<PriceHistory>("/data/storico_prezzi.csv");
         
-        // Filter unique products
-        const uniqueProducts = Array.from(new Set(productsData.map(p => p.NOME_PRODOTTO)))
-          .map(name => productsData.find(p => p.NOME_PRODOTTO === name)!);
+        // Filter unique products based on ID_PRODOTTO
+        const uniqueProductsMap = new Map<string, ProductInfo>();
+        productsData.forEach(p => {
+          if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
+            uniqueProductsMap.set(p.ID_PRODOTTO, p);
+          }
+        });
+        const uniqueProducts = Array.from(uniqueProductsMap.values());
 
         setProducts(uniqueProducts);
         setHistory(historyData);
         if (uniqueProducts.length > 0) {
-          setSelectedProduct(uniqueProducts[0].NOME_PRODOTTO);
+          setSelectedProductId(uniqueProducts[0].ID_PRODOTTO);
         }
       } catch (error) {
         console.error("Error loading CSV data:", error);
@@ -56,12 +63,12 @@ const PriceIntelligence = () => {
   }, []);
 
   const productDetails = useMemo(() => 
-    products.find(p => p.NOME_PRODOTTO === selectedProduct), 
-  [products, selectedProduct]);
+    products.find(p => p.ID_PRODOTTO === selectedProductId), 
+  [products, selectedProductId]);
 
   const filteredHistory = useMemo(() => 
-    history.filter(h => h.NOME_PRODOTTO === selectedProduct),
-  [history, selectedProduct]);
+    history.filter(h => h.ID_PRODOTTO === selectedProductId),
+  [history, selectedProductId]);
 
   // KPI Calculations
   const stats = useMemo(() => {
@@ -119,11 +126,11 @@ const PriceIntelligence = () => {
         <h1 className="text-2xl font-bold text-gray-900">Price Intelligence</h1>
         <select 
           className="p-2 border rounded-md shadow-sm"
-          value={selectedProduct}
-          onChange={(e) => setSelectedProduct(e.target.value)}
+          value={selectedProductId}
+          onChange={(e) => setSelectedProductId(e.target.value)}
         >
           {products.map(p => (
-            <option key={p.NOME_PRODOTTO} value={p.NOME_PRODOTTO}>{p.NOME_PRODOTTO}</option>
+            <option key={p.ID_PRODOTTO} value={p.ID_PRODOTTO}>{p.CANTINA} - {p.VINO}</option>
           ))}
         </select>
       </div>
@@ -132,7 +139,7 @@ const PriceIntelligence = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bento-box flex flex-col items-center justify-center">
           <img 
-            src={productDetails?.URL_IMMAGINE || "https://placehold.co/100x200?text=Vino"} 
+            src={productDetails?.IMM_URL || "https://placehold.co/100x200?text=Vino"} 
             alt="Bottiglia" 
             className="h-24 object-contain"
           />
@@ -154,7 +161,7 @@ const PriceIntelligence = () => {
             "text-2xl font-bold mt-2",
             (stats?.deviance ?? 0) < 0 ? "text-red-600" : "text-green-600"
           )}>
-            {(stats?.deviance ?? 0 * 100).toFixed(1)}%
+            {((stats?.deviance ?? 0) * 100).toFixed(1)}%
           </p>
         </div>
 

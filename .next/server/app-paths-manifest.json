@@ -1,6 +1,5 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
+  "/price-intelligence/page": "app/price-intelligence/page.js",
   "/page": "app/page.js",
-  "/sentiment-analysis/page": "app/sentiment-analysis/page.js",
-  "/price-intelligence/page": "app/price-intelligence/page.js"
+  "/sentiment-analysis/page": "app/sentiment-analysis/page.js"
 }

@@ -9,6 +9,7 @@ import { MessageSquare, Star, ThumbsUp, X } from "lucide-react";
 
 interface Review {
   DATA_COMMENTO: string;
+  ID_PRODOTTO: string;
   NOME_PRODOTTO: string;
   SITO_ORIGINE: string;
   RATING_ORIGINALE: number;
@@ -17,17 +18,37 @@ interface Review {
   PAROLE_CHIAVE_ESTRATTE: string;
 }
 
+interface ProductInfo {
+  ID_PRODOTTO: string;
+  CANTINA: string;
+  VINO: string;
+}
+
 const SentimentAnalysis = () => {
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<string>("all");
+  const [products, setProducts] = useState<ProductInfo[]>([]);
+  const [selectedProductId, setSelectedProductId] = useState<string>("all");
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const data = await parseCSV<Review>("/data/sentiment_vini_elaborato.csv");
-        setReviews(data);
+        const [reviewsData, productsData] = await Promise.all([
+          parseCSV<Review>("/data/sentiment_vini_elaborato.csv"),
+          parseCSV<ProductInfo>("/data/database_vini.csv")
+        ]);
+
+        setReviews(reviewsData);
+        
+        // Filter unique products
+        const uniqueProductsMap = new Map<string, ProductInfo>();
+        productsData.forEach(p => {
+          if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
+            uniqueProductsMap.set(p.ID_PRODOTTO, p);
+          }
+        });
+        setProducts(Array.from(uniqueProductsMap.values()));
       } catch (error) {
         console.error("Error loading sentiment data:", error);
       } finally {
@@ -37,14 +58,21 @@ const SentimentAnalysis = () => {
     loadData();
   }, []);
 
-  const products = useMemo(() => 
-    ["all", ...Array.from(new Set(reviews.map(r => r.NOME_PRODOTTO)))], 
-  [reviews]);
+  const productOptions = useMemo(() => {
+    const uniqueReviewProductIds = Array.from(new Set(reviews.map(r => r.ID_PRODOTTO)));
+    return uniqueReviewProductIds.map(id => {
+      const product = products.find(p => p.ID_PRODOTTO === id);
+      return {
+        id,
+        label: product ? `${product.CANTINA} - ${product.VINO}` : id
+      };
+    }).sort((a, b) => a.label.localeCompare(b.label));
+  }, [reviews, products]);
 
   const filteredReviews = useMemo(() => {
-    let filtered = selectedProduct === "all" 
+    let filtered = selectedProductId === "all" 
       ? reviews 
-      : reviews.filter(r => r.NOME_PRODOTTO === selectedProduct);
+      : reviews.filter(r => r.ID_PRODOTTO === selectedProductId);
     
     if (selectedWord) {
       filtered = filtered.filter(r => 
@@ -53,7 +81,7 @@ const SentimentAnalysis = () => {
       );
     }
     return filtered;
-  }, [reviews, selectedProduct, selectedWord]);
+  }, [reviews, selectedProductId, selectedWord]);
 
   const stats = useMemo(() => {
     if (filteredReviews.length === 0) return null;
@@ -86,7 +114,7 @@ const SentimentAnalysis = () => {
     const extractWords = (sentiment: string) => {
       const counts: Record<string, number> = {};
       reviews
-        .filter(r => (selectedProduct === "all" || r.NOME_PRODOTTO === selectedProduct) && r.SENTIMENT_SCORE === sentiment)
+        .filter(r => (selectedProductId === "all" || r.ID_PRODOTTO === selectedProductId) && r.SENTIMENT_SCORE === sentiment)
         .forEach(r => {
           const words = (r.PAROLE_CHIAVE_ESTRATTE || "").split(",").map(w => w.trim().toLowerCase());
           words.forEach(w => {
@@ -104,7 +132,7 @@ const SentimentAnalysis = () => {
       positive: extractWords("Positivo"),
       negative: extractWords("Negativo")
     };
-  }, [reviews, selectedProduct]);
+  }, [reviews, selectedProductId]);
 
   if (loading) return <div className="p-8">Caricamento sentiment...</div>;
 
@@ -114,14 +142,15 @@ const SentimentAnalysis = () => {
         <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
         <select 
           className="p-2 border rounded-md shadow-sm"
-          value={selectedProduct}
+          value={selectedProductId}
           onChange={(e) => {
-            setSelectedProduct(e.target.value);
+            setSelectedProductId(e.target.value);
             setSelectedWord(null);
           }}
         >
-          {products.map(p => (
-            <option key={p} value={p}>{p === "all" ? "Tutti i Prodotti" : p}</option>
+          <option value="all">Tutti i Prodotti</option>
+          {productOptions.map(p => (
+            <option key={p.id} value={p.id}>{p.label}</option>
           ))}
         </select>
       </div>
