@@ -1,0 +1,66 @@
+{
+  "project_name": "Antigravity Wine OS",
+  "role": "Sei un Expert Frontend & Fullstack Developer. Devi costruire una dashboard B2B moderna, interattiva e 'pixel-perfect' basata rigorosamente sulle seguenti direttive.",
+  "tech_stack": {
+    "framework": "Next.js (React) App Router",
+    "styling": "Tailwind CSS",
+    "charts": "Recharts",
+    "data_parsing": "PapaParse (per leggere i CSV locali in attesa di BigQuery)",
+    "icons": "lucide-react"
+  },
+  "ui_ux_guidelines": {
+    "inspiration": "Stile CoreUI Dashboard. Pulito, aziendale, moderno. Font principale: Aptos Display (o un sans-serif pulito simile se non disponibile).",
+    "layout": "Sidebar fissa a sinistra in Dark Mode (#0B192C), Top Bar in alto, area contenuti a destra. Design responsive.",
+    "bento_style": "I box dei KPI devono avere tutti la stessa altezza, una leggera ombreggiatura (shadow-sm) e una linea verticale BLU sul lato sinistro del box.",
+    "sidebar_menu": "La sidebar deve contenere 3 sezioni: 1) Dashboards (Price Intelligence, Sentiment), 2) Filtri Globali, 3) Contact (un form per l'helpdesk).",
+    "top_bar": "Deve contenere il nome/logo dell'applicativo, un pannello Admin per la selezione globale della cantina e un pulsante 'Reset Filtri' a destra per annullare la navigazione locale."
+  },
+  "authentication_and_roles": {
+    "description": "Predisporre una pagina di Login e un sistema di profilazione (anche fittizio per l'MVP).",
+    "roles": {
+      "Admin": "Può usare il selettore Cantina nella Top Bar e vedere tutti i dati.",
+      "User_Cantina": "Vede solo i dati della propria azienda. Il selettore globale è nascosto."
+    }
+  },
+  "modules": {
+    "price_intelligence": {
+      "rules": ["Ignora i prezzi uguali a 0€ o vuoti nel calcolo della media."],
+      "kpi_top": [
+        "Foto della bottiglia generica",
+        "PREZZO BASE (MAP)",
+        "PREZZO MEDIO",
+        "DEVIANZA %: Formula = (PREZZO_MEDIO / PREZZO_BASE) - 1. Formattazione: -X.X%",
+        "% SOTTOCOSTO: Rilevazioni sotto il Prezzo Base rispetto al totale > 0."
+      ],
+      "main_chart": {
+        "type": "Line Chart interattivo",
+        "features": [
+          "Linea PREZZO BASE: Nera, spessa, tratteggiata orizzontale.",
+          "Marketplace: Colori pastello distinti (NO rosso, arancione, giallo, verde).",
+          "Indicatore Sottocosto: Se PREZZO_RILEVATO < PREZZO_BASE, il marker del giorno deve essere ROSSO.",
+          "Indicatore Sconto: Se PREZZO_SCONTATO presente e minore, aggiungere alone GIALLO.",
+          "Indicatore Stockout: Se STOCKOUT è 'Si', indicatore NERO.",
+          "Tooltip: Deve mostrare solo i dati della linea (marketplace) su cui si passa col mouse."
+        ]
+      },
+      "bottom_section": {
+        "layout": "Wall of Shame (Tabella ordinata per % scostamento negativo decrescente) con: Nome Marketplace, % Scostamento Negativo, Delta Medio (€), Giorni di Sconto, Giorni di Stockout."
+      }
+    },
+    "sentiment_analysis": {
+      "kpi_top": ["Rating Medio", "Sentiment Score (% Positivi)", "Totale Recensioni"],
+      "middle_section": {
+        "share_of_sentiment": "Donut Chart con % Positivo (Verde), Neutro (Grigio chiaro), Negativo (Rosso). Cliccando una fetta, filtra la dashboard.",
+        "word_clouds": "Word Cloud VERDE per positivi, ROSSA per negativi. CRITICO: Le parole devono essere cliccabili. Al click, deve aprirsi sotto una tabella/popup con i commenti che contengono quella parola."
+      },
+      "bottom_section": "Tabella con la lista delle ultime recensioni (Data, Sito, Rating, Sentiment, Testo)."
+    }
+  },
+  "execution_steps": [
+    "1. Inizializza o aggiorna il progetto Next.js.",
+    "2. Crea il layout globale (Sidebar, TopBar con Login/Ruoli simulati e tasto Reset).",
+    "3. Implementa l'estrazione CSV tramite PapaParse.",
+    "4. Crea il modulo Price Intelligence applicando rigorosamente la formattazione dei marker del grafico (ROSSO per sottocosto, GIALLO per sconto, NERO per stockout).",
+    "5. Crea il modulo Sentiment Analysis, inclusa la logica di click sulle parole della Word Cloud per filtrare i commenti sottostanti."
+  ]
+}
