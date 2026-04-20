@@ -135,11 +135,29 @@ def avvia_scraping():
         print(f"Errore: File {FILE_INPUT} non trovato!")
         return
 
-    try:
-        df_input = pd.read_csv(FILE_INPUT, sep=';', encoding='utf-8-sig', engine='python')
+try:
+        # 1. Prova con la virgola (formato standard)
+        df_input = pd.read_csv(FILE_INPUT, sep=',', encoding='utf-8-sig', engine='python')
+        df_input.columns = df_input.columns.str.strip().str.upper()
+        
+        # 2. Se non va, prova col punto e virgola 
+        if 'LINK_SCRAPING' not in df_input.columns:
+            df_input = pd.read_csv(FILE_INPUT, sep=';', encoding='utf-8-sig', engine='python')
+            df_input.columns = df_input.columns.str.strip().str.upper()
+            
+    except UnicodeDecodeError:
+        # 3. IL PIANO B PER EXCEL: Se l'encoding si è rotto, legge in formato locale
+        print("⚠️ Formato Excel rilevato. Attivo decodifica di emergenza...")
+        df_input = pd.read_csv(FILE_INPUT, sep=';', encoding='latin1', engine='python')
+        df_input.columns = df_input.columns.str.strip().str.upper()
+        if 'LINK_SCRAPING' not in df_input.columns:
+            df_input = pd.read_csv(FILE_INPUT, sep=',', encoding='latin1', engine='python')
+            df_input.columns = df_input.columns.str.strip().str.upper()
+            
     except Exception as e:
-        print(f"Errore critico lettura anagrafica: {e}")
-        return
+        print(f"❌ Errore critico lettura anagrafica: {e}")
+        # Facciamo "esplodere" lo script, così GitHub capisce il problema e ti avvisa!
+        raise e
 
     df_input.columns = df_input.columns.str.strip().str.upper()
     risultati = []
