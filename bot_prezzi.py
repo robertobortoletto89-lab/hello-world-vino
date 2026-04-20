@@ -174,7 +174,7 @@ def avvia_scraping():
         record = {
             'DATA_ESTRAZIONE': oggi,
             'CANTINA': cantina,
-            'ID_PRODOTTO': id_prodotto
+            'ID_PRODOTTO': id_prodotto,
             'NOME_PRODOTTO': nome_prodotto,
             'SITO_ORIGINE': sito_origine.capitalize(),
             'PREZZO_RILEVATO': dati['prezzo_originale'] if dati['prezzo_originale'] else None,
