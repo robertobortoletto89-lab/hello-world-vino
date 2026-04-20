@@ -135,7 +135,7 @@ def avvia_scraping():
         print(f"Errore: File {FILE_INPUT} non trovato!")
         return
 
-try:
+    try:
         # 1. Prova con la virgola (formato standard)
         df_input = pd.read_csv(FILE_INPUT, sep=',', encoding='utf-8-sig', engine='python')
         df_input.columns = df_input.columns.str.strip().str.upper()
