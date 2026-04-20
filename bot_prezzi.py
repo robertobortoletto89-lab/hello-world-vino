@@ -147,6 +147,7 @@ def avvia_scraping():
 
     for index, row in df_input.iterrows():
         url = str(row.get('LINK_SCRAPING', '')).strip() 
+        id_prodotto = str(row.get('ID_PRODOTTO', '')).strip()
         cantina = str(row.get('CANTINA', 'Sconosciuta')).strip()
         nome_prodotto = str(row.get('NOME_PRODOTTO', 'Sconosciuto')).strip()
         sito_origine = str(row.get('SITO_ORIGINE', '')).strip().lower()
@@ -173,6 +174,7 @@ def avvia_scraping():
         record = {
             'DATA_ESTRAZIONE': oggi,
             'CANTINA': cantina,
+            'ID_PRODOTTO': id_prodotto
             'NOME_PRODOTTO': nome_prodotto,
             'SITO_ORIGINE': sito_origine.capitalize(),
             'PREZZO_RILEVATO': dati['prezzo_originale'] if dati['prezzo_originale'] else None,
@@ -185,8 +187,8 @@ def avvia_scraping():
     if risultati:
         df_nuovi = pd.DataFrame(risultati)
         
-        # Ordine ufficiale
-        ordine_colonne = ['DATA_ESTRAZIONE', 'CANTINA', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'LINK_SCRAPING']
+# Ordine ufficiale aggiornato
+        ordine_colonne = ['DATA_ESTRAZIONE', 'ID_PRODOTTO', 'CANTINA', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'LINK_SCRAPING']
         df_nuovi = df_nuovi[ordine_colonne]
         
         if os.path.exists(FILE_OUTPUT):
