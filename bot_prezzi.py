@@ -190,18 +190,24 @@ def avvia_scraping():
 # Ordine ufficiale aggiornato
         ordine_colonne = ['DATA_ESTRAZIONE', 'ID_PRODOTTO', 'CANTINA', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'LINK_SCRAPING']
         df_nuovi = df_nuovi[ordine_colonne]
-        
         if os.path.exists(FILE_OUTPUT):
             try:
-                df_storico = pd.read_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', engine='python')
+                # Prova prima con la virgola
+                df_storico = pd.read_csv(FILE_OUTPUT, sep=',', encoding='utf-8-sig', engine='python')
                 df_storico.columns = df_storico.columns.str.strip().str.upper()
+                
+                # Se non trova le colonne chiave, allora era salvato col punto e virgola!
+                if 'DATA_ESTRAZIONE' not in df_storico.columns:
+                    df_storico = pd.read_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', engine='python')
+                    df_storico.columns = df_storico.columns.str.strip().str.upper()
                 
                 # Se nello storico vecchio CANTINA non c'è, la creo VUOTA prima di fondere i file
                 if 'CANTINA' not in df_storico.columns:
                     df_storico['CANTINA'] = ''
                     
                 df_finale = pd.concat([df_storico, df_nuovi], ignore_index=True)
-            except Exception:
+            except Exception as e:
+                print(f"⚠️ ERRORE CRITICO in lettura storico: {e}. I nuovi dati non verranno uniti al vecchio storico per evitare sovrascritture.")
                 df_finale = df_nuovi
         else:
             df_finale = df_nuovi
