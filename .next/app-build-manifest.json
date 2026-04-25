@@ -11,15 +11,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/page.js"
     ],
-    "/price-intelligence/page": [
+    "/api/auth/[...nextauth]/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/price-intelligence/page.js"
+      "static/chunks/app/api/auth/[...nextauth]/route.js"
     ],
     "/sentiment-analysis/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/sentiment-analysis/page.js"
+    ],
+    "/price-intelligence/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/price-intelligence/page.js"
     ]
   }
 }

@@ -2,3 +2,5 @@ credenziali.json
 .aider*
 .env
 node_modules
+
+/src/generated/prisma

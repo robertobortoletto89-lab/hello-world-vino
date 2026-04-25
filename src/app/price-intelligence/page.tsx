@@ -119,7 +119,7 @@ const PriceIntelligence = () => {
   const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088fe", "#00c49f"];
 
   if (loading) return <div className="p-8">Caricamento dati...</div>;
-
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
