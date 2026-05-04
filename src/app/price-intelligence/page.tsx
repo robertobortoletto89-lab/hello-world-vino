@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { parseCSV } from "@/lib/csv-parser";
+import { getSecureData } from "@/actions/data-actions";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Dot
 } from "recharts";
+import { cn } from "@/lib/utils";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info } from "lucide-react";
 
 interface ProductInfo {
@@ -35,8 +36,8 @@ const PriceIntelligence = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const productsData = await parseCSV<ProductInfo>("/data/database_vini.csv");
-        const historyData = await parseCSV<PriceHistory>("/data/storico_prezzi.csv");
+        const productsData = await getSecureData("database_vini.csv") as ProductInfo[];
+        const historyData = await getSecureData("storico_prezzi.csv") as PriceHistory[];
         
         // Filter unique products based on ID_PRODOTTO
         const uniqueProductsMap = new Map<string, ProductInfo>();
@@ -289,9 +290,5 @@ const PriceIntelligence = () => {
     </div>
   );
 };
-
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
 
 export default PriceIntelligence;

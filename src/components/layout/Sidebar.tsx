@@ -2,16 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { LayoutDashboard, TrendingUp, MessageSquare, Filter, Mail } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  // Estraiamo in modo sicuro i dati dell'utente
+  const nomeUtente = (session?.user as any)?.nome || session?.user?.email?.split('@')[0] || "Utente";
+  const ruolo = (session?.user as any)?.ruolo || "User";
+  const cantina = (session?.user as any)?.cantinaVisibile === "ALL" ? "Global Access" : (session?.user as any)?.cantinaVisibile || "Nessuna Cantina";
+  
+  // Creiamo le iniziali (es. Roberto = RO)
+  const iniziali = nomeUtente.substring(0, 2).toUpperCase();
 
   const menuItems = [
     {
@@ -74,11 +79,11 @@ const Sidebar = () => {
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center p-2">
           <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center mr-3">
-            <span className="text-xs font-bold">ADM</span>
+            <span className="text-xs font-bold">{iniziali}</span>
           </div>
-          <div>
-            <p className="text-sm font-medium">Administrator</p>
-            <p className="text-xs text-gray-400 italic">Antigravity Lab</p>
+          <div className="overflow-hidden">
+            <p className="text-sm font-medium truncate">{nomeUtente}</p>
+            <p className="text-xs text-gray-400 italic truncate">{cantina}</p>
           </div>
         </div>
       </div>

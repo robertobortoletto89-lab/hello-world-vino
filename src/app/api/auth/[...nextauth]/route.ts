@@ -1,8 +1,8 @@
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "../../../../lib/prisma"; // Percorso ultra-sicuro
-import fs from "fs";
+import { prisma } from "../../../../lib/prisma";
+import { promises as fs } from "fs";
 import path from "path";
 import Papa from "papaparse";
 
@@ -32,7 +32,7 @@ export const authOptions = {
     async signIn({ user }: { user: { email?: string | null } }) {
       if (!user.email) return false;
       const filePath = path.join(process.cwd(), "utenti.csv");
-      const fileContent = fs.readFileSync(filePath, "utf8");
+      const fileContent = await fs.readFile(filePath, "utf8");
       const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
       const utenti = parsed.data as any[];
       return !!utenti.find((u) => u.EMAIL.toLowerCase() === user.email?.toLowerCase());
@@ -40,12 +40,13 @@ export const authOptions = {
     async jwt({ token, user }: any) {
       if (user) {
         const filePath = path.join(process.cwd(), "utenti.csv");
-        const fileContent = fs.readFileSync(filePath, "utf8");
+        const fileContent = await fs.readFile(filePath, "utf8");
         const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
         const utenteDati = (parsed.data as any[]).find(u => u.EMAIL.toLowerCase() === user.email.toLowerCase());
         if (utenteDati) {
           token.ruolo = utenteDati.RUOLO;
-          token.nome = utenteDati.NOME; // <--- NUOVA RIGA: Legge il NOME dal CSV
+          token.nome = utenteDati.NOME;
+          token.cantinaVisibile = utenteDati.CANTINA_VISIBILE; // <-- AGGIUNTO
         }
       }
       return token;
@@ -53,7 +54,8 @@ export const authOptions = {
     async session({ session, token }: any) {
       if (session.user) {
         session.user.ruolo = token.ruolo;
-        session.user.nome = token.nome; // <--- NUOVA RIGA: Passa il NOME all'interfaccia
+        session.user.nome = token.nome;
+        (session.user as any).cantinaVisibile = token.cantinaVisibile; // <-- AGGIUNTO
       }
       return session;
     }

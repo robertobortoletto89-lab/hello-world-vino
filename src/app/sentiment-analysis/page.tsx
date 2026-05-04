@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { parseCSV } from "@/lib/csv-parser";
+import { getSecureData } from "@/actions/data-actions";
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend
 } from "recharts";
 import { MessageSquare, Star, ThumbsUp, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Review {
   DATA_COMMENTO: string;
@@ -35,8 +36,8 @@ const SentimentAnalysis = () => {
     const loadData = async () => {
       try {
         const [reviewsData, productsData] = await Promise.all([
-          parseCSV<Review>("/data/sentiment_vini_elaborato.csv"),
-          parseCSV<ProductInfo>("/data/database_vini.csv")
+          getSecureData("sentiment_vini_elaborato.csv") as Promise<Review[]>,
+          getSecureData("database_vini.csv") as Promise<ProductInfo[]>
         ]);
 
         setReviews(reviewsData);
@@ -319,8 +320,5 @@ const SentimentAnalysis = () => {
   );
 };
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
 
 export default SentimentAnalysis;
