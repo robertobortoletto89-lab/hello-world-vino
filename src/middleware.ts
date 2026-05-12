@@ -7,13 +7,5 @@ export default withAuth({
 });
 
 export const config = {
-  matcher: [
-    /*
-     * Protegge tutte le pagine tranne:
-     * 1. api/auth (necessario per il login)
-     * 2. _next/static e _next/image (file di sistema)
-     * 3. favicon.ico
-     */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 };

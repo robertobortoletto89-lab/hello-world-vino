@@ -1,50 +1,69 @@
 .
-./scraper_reale.py
-./postcss.config.js
-./tsconfig.json
-./database_vini.csv
-./test_modelli.py
-./bot_prezzi.py
-./prisma
-./prisma/schema.prisma
-./prisma/dev.db
-./check_errori.py
-./requirements.txt
-./package.json
-./tailwind.config.ts
-./app.py
-./scraper_multiplo.py
-./utenti.csv
-./next-env.d.ts
-./test_scraper.py
-./sentiment_vini_elaborato.csv
-./package-lock.json
-./public
-./public/data
-./public/data/database_vini.csv
-./public/data/sentiment_vini_elaborato.csv
-./public/data/sentiment_vini_raw.csv
-./public/data/storico_prezzi.csv
-./sentiment_vini_raw.csv
-./__pycache__
-./__pycache__/bot_prezzi.cpython-312.pyc
-./bot_sentiment_ai.py
-./scraper_vivino_sentiment.py
-./storico_prezzi.csv
-./README.md
-./next.config.ts
-./src
-./src/components
-./src/components/providers
-./src/components/layout
-./src/lib
-./src/lib/csv-parser.ts
-./src/lib/prisma.ts
-./src/middleware.ts
-./src/app
-./src/app/layout.tsx
-./src/app/api
-./src/app/sentiment-analysis
-./src/app/price-intelligence
-./src/app/globals.css
-./src/app/page.tsx
+├── .env
+├── .github
+│   └── workflows
+│       ├── istruzioni_gemini.json
+│       └── scraper_notturno.yml
+├── .gitignore
+├── README.md
+├── __pycache__
+│   └── bot_prezzi.cpython-312.pyc
+├── app.py
+├── bot_prezzi.py
+├── bot_sentiment_ai.py
+├── check_errori.py
+├── contesto_completo_app.txt
+├── database_vini.csv
+├── mappa_progetto.txt
+├── next-env.d.ts
+├── next.config.ts
+├── package-lock.json
+├── package.json
+├── postcss.config.js
+├── prisma
+│   ├── dev.db
+│   └── schema.prisma
+├── public
+│   └── data
+│       ├── database_vini.csv
+│       ├── sentiment_vini_elaborato.csv
+│       ├── sentiment_vini_raw.csv
+│       └── storico_prezzi.csv
+├── requirements.txt
+├── scraper_multiplo.py
+├── scraper_reale.py
+├── scraper_vivino_sentiment.py
+├── sentiment_vini_elaborato.csv
+├── sentiment_vini_raw.csv
+├── src
+│   ├── actions
+│   │   └── data-actions.ts
+│   ├── app
+│   │   ├── api
+│   │   │   └── auth
+│   │   ├── globals.css
+│   │   ├── layout.tsx
+│   │   ├── page.tsx
+│   │   ├── price-intelligence
+│   │   │   └── page.tsx
+│   │   └── sentiment-analysis
+│   │       └── page.tsx
+│   ├── components
+│   │   ├── layout
+│   │   │   ├── Sidebar.tsx
+│   │   │   └── TopBar.tsx
+│   │   └── providers
+│   │       └── NextAuthProvider.tsx
+│   ├── lib
+│   │   ├── csv-parser.ts
+│   │   ├── prisma.ts
+│   │   └── utils.ts
+│   └── middleware.ts
+├── storico_prezzi.csv
+├── tailwind.config.ts
+├── test_modelli.py
+├── test_scraper.py
+├── tsconfig.json
+└── utenti.csv
+
+18 directories, 49 files

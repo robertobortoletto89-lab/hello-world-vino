@@ -1,4 +1,4 @@
-]633;E;for file in $(find src -name "*.ts" -o -name "*.tsx" -o -name "*.css") package.json tsconfig.json next.config.js utenti.csv;6d2e5506-cbef-4fc9-8702-e370b3b5354f]633;C========================================
+]633;E;for file in $(find src -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.css" \\)) package.json tsconfig.json next.config.mjs next.config.js utenti.csv;6d2e5506-cbef-4fc9-8702-e370b3b5354f]633;C========================================
 FILE: src/components/providers/NextAuthProvider.tsx
 ========================================
 "use client";
@@ -10,6 +10,7 @@ export const NextAuthProvider = ({ children }: { children: React.ReactNode }) =>
   return <SessionProvider>{children}</SessionProvider>;
 };
 
+
 ========================================
 FILE: src/components/layout/Sidebar.tsx
 ========================================
@@ -17,16 +18,21 @@ FILE: src/components/layout/Sidebar.tsx
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { LayoutDashboard, TrendingUp, MessageSquare, Filter, Mail } from "lucide-react";
-import { clsx, type ClassValue } from "clsx";
-import { twMerge } from "tailwind-merge";
-
-function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
+import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
   const pathname = usePathname();
+  const { data: session } = useSession();
+
+  // Estraiamo in modo sicuro i dati dell'utente
+  const nomeUtente = (session?.user as any)?.nome || session?.user?.email?.split('@')[0] || "Utente";
+  const ruolo = (session?.user as any)?.ruolo || "User";
+  const cantina = (session?.user as any)?.cantinaVisibile === "ALL" ? "Global Access" : (session?.user as any)?.cantinaVisibile || "Nessuna Cantina";
+  
+  // Creiamo le iniziali (es. Roberto = RO)
+  const iniziali = nomeUtente.substring(0, 2).toUpperCase();
 
   const menuItems = [
     {
@@ -89,11 +95,11 @@ const Sidebar = () => {
       <div className="p-4 border-t border-gray-800">
         <div className="flex items-center p-2">
           <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center mr-3">
-            <span className="text-xs font-bold">ADM</span>
+            <span className="text-xs font-bold">{iniziali}</span>
           </div>
-          <div>
-            <p className="text-sm font-medium">Administrator</p>
-            <p className="text-xs text-gray-400 italic">Antigravity Lab</p>
+          <div className="overflow-hidden">
+            <p className="text-sm font-medium truncate">{nomeUtente}</p>
+            <p className="text-xs text-gray-400 italic truncate">{cantina}</p>
           </div>
         </div>
       </div>
@@ -185,6 +191,68 @@ const TopBar = () => {
 export default TopBar;
 
 
+
+========================================
+FILE: src/actions/data-actions.ts
+========================================
+"use server";
+
+import { promises as fs } from "fs";
+import path from "path";
+import Papa from "papaparse";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+
+export async function getSecureData(fileName: string) {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) {
+    throw new Error("Non autorizzato");
+  }
+
+  const ruoloUtente = (session.user as any).ruolo;
+  const emailUtente = session.user.email;
+  const cantinaVisibile = (session.user as any).cantinaVisibile; 
+  
+  const isEmailAdmin = emailUtente === "admin@antigravity.it";
+  const isAdmin = ruoloUtente === 'ADMIN' || isEmailAdmin;
+
+  const filePath = path.join(process.cwd(), "public", "data", fileName);
+  try {
+    const fileContent = await fs.readFile(filePath, "utf8");
+    const parsed = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      dynamicTyping: true,
+      delimiter: "", // Auto-detect
+    });
+
+    const allData = parsed.data as any[];
+
+    // La bellezza della standardizzazione: questa singola riga filtra TUTTI i tuoi file futuri
+    if (isAdmin || cantinaVisibile === 'ALL') {
+      return allData;
+    } else {
+      return allData.filter((row: any) => row.CANTINA === cantinaVisibile);
+    }
+  } catch (error) {
+    console.error(`Errore nella lettura del file ${fileName}:`, error);
+    throw new Error("Errore nel recupero dati");
+  }
+}
+
+
+========================================
+FILE: src/lib/utils.ts
+========================================
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+
+
 ========================================
 FILE: src/lib/csv-parser.ts
 ========================================
@@ -211,6 +279,7 @@ export async function parseCSV<T>(filePath: string): Promise<T[]> {
 }
 
 
+
 ========================================
 FILE: src/lib/prisma.ts
 ========================================
@@ -221,6 +290,7 @@ const globalForPrisma = global as unknown as { prisma: PrismaClient };
 export const prisma = globalForPrisma.prisma || new PrismaClient();
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+
 
 ========================================
 FILE: src/middleware.ts
@@ -244,6 +314,7 @@ export const config = {
     "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
   ],
 };
+
 
 ========================================
 FILE: src/app/layout.tsx
@@ -282,14 +353,15 @@ export default function RootLayout({
   );
 }
 
+
 ========================================
 FILE: src/app/api/auth/[...nextauth]/route.ts
 ========================================
 import NextAuth from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "../../../../lib/prisma"; // Percorso ultra-sicuro
-import fs from "fs";
+import { prisma } from "../../../../lib/prisma";
+import { promises as fs } from "fs";
 import path from "path";
 import Papa from "papaparse";
 
@@ -319,7 +391,7 @@ export const authOptions = {
     async signIn({ user }: { user: { email?: string | null } }) {
       if (!user.email) return false;
       const filePath = path.join(process.cwd(), "utenti.csv");
-      const fileContent = fs.readFileSync(filePath, "utf8");
+      const fileContent = await fs.readFile(filePath, "utf8");
       const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
       const utenti = parsed.data as any[];
       return !!utenti.find((u) => u.EMAIL.toLowerCase() === user.email?.toLowerCase());
@@ -327,12 +399,13 @@ export const authOptions = {
     async jwt({ token, user }: any) {
       if (user) {
         const filePath = path.join(process.cwd(), "utenti.csv");
-        const fileContent = fs.readFileSync(filePath, "utf8");
+        const fileContent = await fs.readFile(filePath, "utf8");
         const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
         const utenteDati = (parsed.data as any[]).find(u => u.EMAIL.toLowerCase() === user.email.toLowerCase());
         if (utenteDati) {
           token.ruolo = utenteDati.RUOLO;
-          token.nome = utenteDati.NOME; // <--- NUOVA RIGA: Legge il NOME dal CSV
+          token.nome = utenteDati.NOME;
+          token.cantinaVisibile = utenteDati.CANTINA_VISIBILE; // <-- AGGIUNTO
         }
       }
       return token;
@@ -340,7 +413,8 @@ export const authOptions = {
     async session({ session, token }: any) {
       if (session.user) {
         session.user.ruolo = token.ruolo;
-        session.user.nome = token.nome; // <--- NUOVA RIGA: Passa il NOME all'interfaccia
+        session.user.nome = token.nome;
+        (session.user as any).cantinaVisibile = token.cantinaVisibile; // <-- AGGIUNTO
       }
       return session;
     }
@@ -350,17 +424,20 @@ export const authOptions = {
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
 
+
+
 ========================================
 FILE: src/app/sentiment-analysis/page.tsx
 ========================================
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { parseCSV } from "@/lib/csv-parser";
+import { getSecureData } from "@/actions/data-actions";
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend
 } from "recharts";
 import { MessageSquare, Star, ThumbsUp, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface Review {
   DATA_COMMENTO: string;
@@ -390,8 +467,8 @@ const SentimentAnalysis = () => {
     const loadData = async () => {
       try {
         const [reviewsData, productsData] = await Promise.all([
-          parseCSV<Review>("/data/sentiment_vini_elaborato.csv"),
-          parseCSV<ProductInfo>("/data/database_vini.csv")
+          getSecureData("sentiment_vini_elaborato.csv") as Promise<Review[]>,
+          getSecureData("database_vini.csv") as Promise<ProductInfo[]>
         ]);
 
         setReviews(reviewsData);
@@ -674,11 +751,9 @@ const SentimentAnalysis = () => {
   );
 };
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
 
 export default SentimentAnalysis;
+
 
 
 ========================================
@@ -687,10 +762,11 @@ FILE: src/app/price-intelligence/page.tsx
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { parseCSV } from "@/lib/csv-parser";
+import { getSecureData } from "@/actions/data-actions";
 import { 
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Dot
 } from "recharts";
+import { cn } from "@/lib/utils";
 import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info } from "lucide-react";
 
 interface ProductInfo {
@@ -721,8 +797,8 @@ const PriceIntelligence = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const productsData = await parseCSV<ProductInfo>("/data/database_vini.csv");
-        const historyData = await parseCSV<PriceHistory>("/data/storico_prezzi.csv");
+        const productsData = await getSecureData("database_vini.csv") as ProductInfo[];
+        const historyData = await getSecureData("storico_prezzi.csv") as PriceHistory[];
         
         // Filter unique products based on ID_PRODOTTO
         const uniqueProductsMap = new Map<string, ProductInfo>();
@@ -976,11 +1052,8 @@ const PriceIntelligence = () => {
   );
 };
 
-function cn(...inputs: any[]) {
-  return inputs.filter(Boolean).join(" ");
-}
-
 export default PriceIntelligence;
+
 
 
 ========================================
@@ -1011,6 +1084,7 @@ body {
   @apply bg-white p-4 shadow-sm border-l-4 border-l-blue-600 rounded-sm;
   min-height: 120px;
 }
+
 
 
 ========================================
@@ -1074,6 +1148,7 @@ export default async function Home() {
 }
 
 
+
 ========================================
 FILE: package.json
 ========================================
@@ -1116,6 +1191,7 @@ FILE: package.json
     "typescript": "^5"
   }
 }
+
 
 
 ========================================
@@ -1163,14 +1239,11 @@ FILE: tsconfig.json
 }
 
 
-========================================
-FILE: next.config.js
-========================================
-
 
 ========================================
 FILE: utenti.csv
 ========================================
 NOME;COGNOME;EMAIL;RUOLO;CANTINA_VISIBILE;APP_VISIBILE
 Roberto;Bortoletto;roberto.bortoletto89@gmail.com;ADMIN;ALL;ALL
+
 
