@@ -83,13 +83,11 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
   }, [selectedWineId]);
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-20">
-      <div className="flex items-center gap-6">
-        <span className="text-gray-500 font-medium whitespace-nowrap hidden xl:block">Dashboard Overview</span>
-        
-        {/* Combobox Ricerca Bottiglia */}
-        <div className="relative" ref={dropdownRef}>
-          <div className="flex items-center bg-gray-100 rounded-md px-3 py-1.5 border border-gray-200 w-64 lg:w-80">
+    <header className="flex flex-row items-center justify-between w-full h-16 px-2 gap-4 bg-white border-b border-gray-200 z-20">
+      {/* Combobox Ricerca Bottiglia - Flexible */}
+      <div className="flex-1 min-w-[200px] max-w-md" ref={dropdownRef}>
+        <div className="relative">
+          <div className="flex items-center bg-gray-100 rounded-md px-3 py-1.5 border border-gray-200 w-full">
             <Search className="h-4 w-4 text-gray-400 mr-2 shrink-0" />
             <input 
               type="text" 
@@ -145,25 +143,27 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Date Picker Range */}
-        <div className="hidden md:flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-md">
+      {/* Date Picker Range - Responsive Collapse */}
+      <div className="shrink-0 flex items-center justify-center">
+        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-md shrink-0">
           <Calendar className="h-4 w-4 text-gray-500 shrink-0" />
-          <div className="flex items-center gap-1">
+          
+          <div className="hidden xl:flex items-center gap-2">
             <input 
               type="date" 
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="bg-transparent border-none text-[11px] focus:ring-0 p-0 w-[90px] cursor-pointer"
+              className="bg-transparent border-none text-[11px] focus:ring-0 p-0 cursor-pointer"
             />
             <span className="text-gray-400 text-xs">-</span>
             <input 
               type="date" 
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="bg-transparent border-none text-[11px] focus:ring-0 p-0 w-[90px] cursor-pointer"
+              className="bg-transparent border-none text-[11px] focus:ring-0 p-0 cursor-pointer"
             />
           </div>
+
           <button 
             onClick={handleSelectAllDates}
             className={cn(
@@ -177,9 +177,11 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
             All
           </button>
         </div>
+      </div>
 
-        {/* Winery Selector */}
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-md relative min-w-[140px]">
+      <div className="shrink-0 flex items-center gap-4">
+        {/* Winery Selector - Fixed */}
+        <div className="flex-none w-48 flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-md relative">
           <span className="text-[10px] font-bold text-blue-700 uppercase shrink-0">Cantina:</span>
           <select 
             value={selectedCantina}

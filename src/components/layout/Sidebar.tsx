@@ -46,8 +46,8 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
 
   return (
     <aside className={cn(
-      "bg-sidebar-bg text-white flex flex-col h-full transition-all duration-300 relative z-30",
-      isCollapsed ? "w-20" : "w-64"
+      "bg-sidebar-bg text-white flex flex-col h-full transition-all duration-300 relative z-30 flex-shrink-0",
+      isCollapsed ? "w-16" : "w-64"
     )}>
       <div className="p-6 flex items-center justify-between">
         {!isCollapsed && <h1 className="text-xl font-bold tracking-tight">WINE OS</h1>}
