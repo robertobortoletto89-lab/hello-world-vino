@@ -1,5 +1,28 @@
 {
-  "node": {},
+  "node": {
+    "00c25718d0fa2f17af66e200c09e61cabbdeccfce9": {
+      "workers": {
+        "app/api/sentiment/route": {
+          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fworkspaces%2Fhello-world-vino%2Fsrc%2Factions%2Fdata-actions.ts%22%2C%5B%5B%2200c25718d0fa2f17af66e200c09e61cabbdeccfce9%22%2C%22getWineries%22%5D%2C%5B%22407609a328046f48794ed13da8298eac7d8cd756b6%22%2C%22getSecureData%22%5D%5D%5D%5D&__client_imported__=!",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/api/sentiment/route": "rsc"
+      }
+    },
+    "407609a328046f48794ed13da8298eac7d8cd756b6": {
+      "workers": {
+        "app/api/sentiment/route": {
+          "moduleId": "(rsc)/./node_modules/next/dist/build/webpack/loaders/next-flight-action-entry-loader.js?actions=%5B%5B%22%2Fworkspaces%2Fhello-world-vino%2Fsrc%2Factions%2Fdata-actions.ts%22%2C%5B%5B%2200c25718d0fa2f17af66e200c09e61cabbdeccfce9%22%2C%22getWineries%22%5D%2C%5B%22407609a328046f48794ed13da8298eac7d8cd756b6%22%2C%22getSecureData%22%5D%5D%5D%5D&__client_imported__=!",
+          "async": false
+        }
+      },
+      "layer": {
+        "app/api/sentiment/route": "rsc"
+      }
+    }
+  },
   "edge": {},
-  "encryptionKey": "9hUIpSxbqipRi/FxLau9l2w/P3BwhCVDkpnremF3rO0="
+  "encryptionKey": "HNGl8LfTmBhQztfgfbsOQk300JToIwmilsvKDVzFcDo="
 }

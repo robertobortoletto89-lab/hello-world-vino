@@ -24,16 +24,6 @@ const PASTEL_COLORS = [
   "#D4F0F0", "#FFC8A2", "#F9EBDF", "#D5AAFF", "#85E3FF", "#B2F2BB"
 ];
 
-const isWeekend = (dateStr: string) => {
-  const parts = dateStr.split(' ');
-  if (parts.length < 2) return false;
-  const [day, month] = parts[1].split('/').map(Number);
-  const year = new Date().getFullYear();
-  const date = new Date(year, month - 1, day);
-  const dayOfWeek = date.getDay();
-  return dayOfWeek === 0 || dayOfWeek === 6;
-};
-
 const Chart = ({ data, basePrice, marketplaces, onVisibleDataChange, xDomain, onZoom }: ChartProps) => {
   console.log('Dati ricevuti nel grafico:', data);
   console.log('Prezzo base:', basePrice);
@@ -65,17 +55,29 @@ const Chart = ({ data, basePrice, marketplaces, onVisibleDataChange, xDomain, on
     }
   }, [currentRange, onZoom]);
 
+  // Funzione di Reset Completo
+  const handleReset = useCallback(() => {
+    // 1. Reset Zoom (Comunica al padre e resetta localmente)
+    if (onZoom) onZoom(null);
+    setCurrentRange(null);
+    
+    // 2. Ripristina visibilità marketplace
+    setVisibleMarketplaces(marketplaces);
+    
+    // 3. Sincronizza KPI istantaneamente con i dati originali
+    if (onVisibleDataChange) {
+      onVisibleDataChange(data, marketplaces);
+    }
+  }, [data, marketplaces, onZoom, onVisibleDataChange]);
+
   const handleLegendClick = useCallback((event: any) => {
     const mp = event.data[event.curveNumber].name;
     if (mp === 'PREZZO BASE') return false; 
 
     setVisibleMarketplaces(prev => {
       const isVisible = prev.includes(mp);
-      if (isVisible) {
-        return prev.filter(m => m !== mp);
-      } else {
-        return [...prev, mp];
-      }
+      const newVisible = isVisible ? prev.filter(m => m !== mp) : [...prev, mp];
+      return newVisible;
     });
     
     return false; // Impedisce a Plotly di gestire la visibilità internamente
@@ -176,8 +178,8 @@ const Chart = ({ data, basePrice, marketplaces, onVisibleDataChange, xDomain, on
     // Trace per il PREZZO BASE (MAP)
     const basePriceTrace = {
       x: data.map(d => {
-        const [day, month] = d.date.split(' ')[1].split('/').map(Number);
-        return new Date(new Date().getFullYear(), month - 1, day);
+        const [day, month, year] = d.rawDate.split('/').map(Number);
+        return new Date(year, month - 1, day);
       }),
       y: data.map(() => basePrice),
       name: 'PREZZO BASE',
@@ -238,10 +240,7 @@ const Chart = ({ data, basePrice, marketplaces, onVisibleDataChange, xDomain, on
         <h3 className="text-lg font-bold">Andamento Prezzi per Marketplace</h3>
         <div className="flex gap-2">
           <button 
-            onClick={() => {
-              if (onZoom) onZoom(null);
-              setVisibleMarketplaces(marketplaces);
-            }} 
+            onClick={handleReset} 
             className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 border px-2 py-1 rounded"
           >
             <RotateCcw className="h-3.5 w-3.5" /> Reset Grafico

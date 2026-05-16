@@ -21,15 +21,15 @@
       "static/chunks/main-app.js",
       "static/chunks/app/api/prodotti/route.js"
     ],
-    "/price-intelligence/page": [
+    "/sentiment-analysis/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/price-intelligence/page.js"
+      "static/chunks/app/sentiment-analysis/page.js"
     ],
-    "/api/storico/route": [
+    "/api/sentiment/route": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/api/storico/route.js"
+      "static/chunks/app/api/sentiment/route.js"
     ]
   }
 }

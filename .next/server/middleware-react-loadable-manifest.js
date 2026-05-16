@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"components/Chart.tsx -> react-plotly.js\":{\"id\":\"components/Chart.tsx -> react-plotly.js\",\"files\":[\"static/chunks/_app-pages-browser_node_modules_react-plotly_js_react-plotly_js.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"

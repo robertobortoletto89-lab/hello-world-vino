@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { AlertTriangle, Info, RotateCcw } from "lucide-react";
+import { AlertTriangle, Info } from "lucide-react";
 import Chart from "./Chart";
 
 interface ProductInfo {
@@ -166,10 +166,6 @@ const PriceIntelligence = () => {
     setZoomXDomain(domain);
   }, []);
 
-  const handleResetAll = useCallback(() => {
-    setZoomXDomain(null);
-  }, []);
-
   if (loading) return <div className="p-8 text-center text-gray-500">Caricamento Price Intelligence...</div>;
   if (!productDetails) return (
     <div className="p-12 text-center bg-gray-50 border border-dashed rounded-md">
@@ -195,14 +191,6 @@ const PriceIntelligence = () => {
             <p className="text-gray-500">{productDetails.CANTINA}</p>
           </div>
         </div>
-        
-        <button 
-          onClick={handleResetAll}
-          className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-md transition-colors text-sm font-medium"
-        >
-          <RotateCcw className="h-4 w-4" />
-          Reset Grafico
-        </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { getSecureData } from "@/actions/data-actions";
+import { useSearchParams } from "next/navigation";
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend
 } from "recharts";
-import { MessageSquare, Star, ThumbsUp, X } from "lucide-react";
+import { MessageSquare, Star, X, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Review {
@@ -26,54 +26,61 @@ interface ProductInfo {
 }
 
 const SentimentAnalysis = () => {
+  const searchParams = useSearchParams();
+  const selectedProductId = searchParams.get("id_prodotto") || "";
+
   const [reviews, setReviews] = useState<Review[]>([]);
   const [products, setProducts] = useState<ProductInfo[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>("all");
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
-      try {
-        const [reviewsData, productsData] = await Promise.all([
-          getSecureData("sentiment_vini_elaborato.csv") as Promise<Review[]>,
-          getSecureData("database_vini.csv") as Promise<ProductInfo[]>
-        ]);
+      if (!selectedProductId) {
+        setLoading(false);
+        return;
+      }
 
-        setReviews(reviewsData);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(`/api/sentiment?id_prodotto=${selectedProductId}`);
+        if (!response.ok) {
+          throw new Error(`Errore HTTP: ${response.status}`);
+        }
+        const data = await response.json();
         
-        // Filter unique products
-        const uniqueProductsMap = new Map<string, ProductInfo>();
-        productsData.forEach(p => {
-          if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
-            uniqueProductsMap.set(p.ID_PRODOTTO, p);
-          }
-        });
-        setProducts(Array.from(uniqueProductsMap.values()));
-      } catch (error) {
+        setReviews(data.reviews || []);
+        
+        // Filter unique products (only if products list is empty, to avoid unnecessary work)
+        if (products.length === 0) {
+          const uniqueProductsMap = new Map<string, ProductInfo>();
+          (data.products || []).forEach((p: ProductInfo) => {
+            if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
+              uniqueProductsMap.set(p.ID_PRODOTTO, p);
+            }
+          });
+          setProducts(Array.from(uniqueProductsMap.values()));
+        }
+      } catch (error: any) {
         console.error("Error loading sentiment data:", error);
+        setError(error.message || "Impossibile caricare i dati della Sentiment Analysis");
       } finally {
         setLoading(false);
       }
     };
     loadData();
-  }, []);
+  }, [selectedProductId, products.length]);
 
-  const productOptions = useMemo(() => {
-    const uniqueReviewProductIds = Array.from(new Set(reviews.map(r => r.ID_PRODOTTO)));
-    return uniqueReviewProductIds.map(id => {
-      const product = products.find(p => p.ID_PRODOTTO === id);
-      return {
-        id,
-        label: product ? `${product.CANTINA} - ${product.VINO}` : id
-      };
-    }).sort((a, b) => a.label.localeCompare(b.label));
-  }, [reviews, products]);
+  const productDetails = useMemo(() => 
+    products.find(p => p.ID_PRODOTTO === selectedProductId), 
+  [products, selectedProductId]);
 
   const filteredReviews = useMemo(() => {
-    let filtered = selectedProductId === "all" 
-      ? reviews 
-      : reviews.filter(r => r.ID_PRODOTTO === selectedProductId);
+    // Reviews are now filtered on the server, but we still apply the keyword filter here
+    let filtered = reviews;
     
     if (selectedWord) {
       filtered = filtered.filter(r => 
@@ -82,7 +89,7 @@ const SentimentAnalysis = () => {
       );
     }
     return filtered;
-  }, [reviews, selectedProductId, selectedWord]);
+  }, [reviews, selectedWord]);
 
   const stats = useMemo(() => {
     if (filteredReviews.length === 0) return null;
@@ -115,7 +122,7 @@ const SentimentAnalysis = () => {
     const extractWords = (sentiment: string) => {
       const counts: Record<string, number> = {};
       reviews
-        .filter(r => (selectedProductId === "all" || r.ID_PRODOTTO === selectedProductId) && r.SENTIMENT_SCORE === sentiment)
+        .filter(r => r.SENTIMENT_SCORE === sentiment)
         .forEach(r => {
           const words = (r.PAROLE_CHIAVE_ESTRATTE || "").split(",").map(w => w.trim().toLowerCase());
           words.forEach(w => {
@@ -133,27 +140,48 @@ const SentimentAnalysis = () => {
       positive: extractWords("Positivo"),
       negative: extractWords("Negativo")
     };
-  }, [reviews, selectedProductId]);
+  }, [reviews]);
 
-  if (loading) return <div className="p-8">Caricamento sentiment...</div>;
+  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento sentiment...</div>;
+
+  if (error) return (
+    <div className="p-12 text-center bg-red-50 border border-red-200 rounded-md">
+      <h3 className="text-lg font-medium text-red-900">Errore nel caricamento dei dati</h3>
+      <p className="text-red-700 mt-1">{error}</p>
+    </div>
+  );
+
+  if (!selectedProductId) return (
+    <div className="p-12 text-center bg-gray-50 border border-dashed rounded-md">
+      <Info className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-gray-900">Nessun prodotto selezionato</h3>
+      <p className="text-gray-500 mt-1">Usa la barra di ricerca in alto per selezionare un vino da analizzare.</p>
+    </div>
+  );
+
+  if (reviews.length === 0) return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
+          <p className="text-gray-500">{productDetails?.CANTINA} - {productDetails?.VINO}</p>
+        </div>
+      </div>
+      <div className="p-12 text-center bg-gray-50 border border-dashed rounded-md">
+        <MessageSquare className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-medium text-gray-900">Nessun dato di sentiment trovato</h3>
+        <p className="text-gray-500 mt-1">Non abbiamo recensioni elaborate per questo prodotto nel periodo selezionato.</p>
+      </div>
+    </div>
+  );
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
-        <select 
-          className="p-2 border rounded-md shadow-sm"
-          value={selectedProductId}
-          onChange={(e) => {
-            setSelectedProductId(e.target.value);
-            setSelectedWord(null);
-          }}
-        >
-          <option value="all">Tutti i Prodotti</option>
-          {productOptions.map(p => (
-            <option key={p.id} value={p.id}>{p.label}</option>
-          ))}
-        </select>
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
+          <p className="text-gray-500">{productDetails?.CANTINA} - {productDetails?.VINO}</p>
+        </div>
       </div>
 
       {/* KPI Section */}
