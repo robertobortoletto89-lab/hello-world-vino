@@ -3,6 +3,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { Search, RotateCcw, User, ChevronDown, LogOut, Calendar, X, Check } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
 interface TopBarProps {
@@ -17,6 +18,9 @@ interface Product {
 
 const TopBar = ({ isCollapsed }: TopBarProps) => {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   
   // Estrazione dati dalla sessione
   const nomeUtente = (session?.user as any)?.nome || "Utente";
@@ -28,17 +32,34 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
   const [wines, setWines] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Stati per i filtri
-  const [selectedCantina, setSelectedCantina] = useState(isAdmin ? "all" : (cantinaVisibile || "all"));
+  // Stati per i filtri (inizializzati da URL o default)
+  const [selectedCantina, setSelectedCantina] = useState(searchParams.get("cantina") || (isAdmin ? "all" : (cantinaVisibile || "all")));
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
+  const [selectedWineId, setSelectedWineId] = useState<string | null>(searchParams.get("id_prodotto"));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // Stati per le date
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState(searchParams.get("data_inizio") || "");
+  const [endDate, setEndDate] = useState(searchParams.get("data_fine") || "");
   
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper per aggiornare l'URL
+  const updateURL = (params: Record<string, string | null>) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) {
+        current.set(key, value);
+      } else {
+        current.delete(key);
+      }
+    });
+
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.push(`${pathname}${query}`);
+  };
 
   // Caricamento prodotti dall'API
   useEffect(() => {
@@ -61,6 +82,16 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
       fetchProducts();
     }
   }, [session]);
+
+  // Sincronizza stati con URL quando cambiano
+  useEffect(() => {
+    updateURL({
+      cantina: selectedCantina === "all" ? null : selectedCantina,
+      id_prodotto: selectedWineId,
+      data_inizio: startDate || null,
+      data_fine: endDate || null
+    });
+  }, [selectedCantina, selectedWineId, startDate, endDate]);
 
   const allCantine = useMemo(() => {
     return Array.from(new Set(wines.map(w => w.CANTINA))).sort();

@@ -30,7 +30,13 @@ export async function GET() {
 
     // Rimuovi duplicati basati su ID_PRODOTTO (il CSV sembra avere righe multiple per lo stesso prodotto ma siti diversi)
     // Se l'obiettivo è avere una lista di prodotti UNICI per il filtro
-    const prodottiUnici = Array.from(new Map(prodotti.map(p => [p.ID_PRODOTTO, p])).values());
+    const prodottiUnici = Array.from(new Map(prodotti.map(p => [p.ID_PRODOTTO, {
+      ID_PRODOTTO: p.ID_PRODOTTO,
+      NOME_PRODOTTO: p.NOME_PRODOTTO,
+      CANTINA: p.CANTINA,
+      URL_IMMAGINE: p.URL_IMMAGINE,
+      PREZZO_BASE: parseFloat(p.PREZZO_BASE?.toString().replace(',', '.') || "0")
+    }])).values());
 
     if (role !== "ADMIN") {
       prodotti = prodottiUnici.filter((p) => p.CANTINA === cantinaVisibile);
