@@ -9,19 +9,11 @@ interface TopBarProps {
   isCollapsed: boolean;
 }
 
-// Dati mockati per lo sviluppo dell'interfaccia
-const MOCK_WINES = [
-  { id: 'WINE001', nome: 'Cartizze Valdobbiadene DOCG', cantina: 'Cantina Del Garda' },
-  { id: 'WINE002', nome: 'Prosecco Superiore Millesimato', cantina: 'Cantina Del Garda' },
-  { id: 'WINE003', nome: 'Amarone della Valpolicella Riserva', cantina: 'Tenuta Veronese' },
-  { id: 'WINE004', nome: 'Ripasso Valpolicella Superiore', cantina: 'Tenuta Veronese' },
-  { id: 'WINE005', nome: 'Barolo Cannubi DOCG', cantina: 'Poderi Piemontesi' },
-  { id: 'WINE006', nome: 'Nebbiolo d\'Alba', cantina: 'Poderi Piemontesi' },
-  { id: 'WINE007', nome: 'Franciacorta Pas Dosé', cantina: 'Castello Bresciano' },
-  { id: 'WINE008', nome: 'Lugana DOC Prestige', cantina: 'Cantina Del Garda' },
-];
-
-const MOCK_CANTINE = Array.from(new Set(MOCK_WINES.map(w => w.cantina)));
+interface Product {
+  ID_PRODOTTO: string;
+  NOME_PRODOTTO: string;
+  CANTINA: string;
+}
 
 const TopBar = ({ isCollapsed }: TopBarProps) => {
   const { data: session } = useSession();
@@ -31,6 +23,10 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
   const ruolo = (session?.user as any)?.ruolo;
   const cantinaVisibile = (session?.user as any)?.cantinaVisibile;
   const isAdmin = ruolo === 'ADMIN' || session?.user?.email === "admin@antigravity.it";
+
+  // Stati per i dati reali
+  const [wines, setWines] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Stati per i filtri
   const [selectedCantina, setSelectedCantina] = useState(isAdmin ? "all" : (cantinaVisibile || "all"));
@@ -43,6 +39,32 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
   const [endDate, setEndDate] = useState("");
   
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Caricamento prodotti dall'API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/prodotti');
+        if (response.ok) {
+          const data = await response.json();
+          setWines(data);
+        }
+      } catch (error) {
+        console.error("Errore nel caricamento prodotti:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (session) {
+      fetchProducts();
+    }
+  }, [session]);
+
+  const allCantine = useMemo(() => {
+    return Array.from(new Set(wines.map(w => w.CANTINA))).sort();
+  }, [wines]);
 
   // Chiudi il dropdown quando si clicca fuori
   useEffect(() => {
@@ -57,13 +79,13 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
 
   // Filtraggio vini basato su cantina e query di ricerca
   const filteredWines = useMemo(() => {
-    return MOCK_WINES.filter(wine => {
-      const matchesCantina = selectedCantina === "all" || wine.cantina === selectedCantina;
-      const matchesQuery = wine.nome.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                           wine.id.toLowerCase().includes(searchQuery.toLowerCase());
+    return wines.filter(wine => {
+      const matchesCantina = selectedCantina === "all" || wine.CANTINA === selectedCantina;
+      const matchesQuery = wine.NOME_PRODOTTO.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           wine.ID_PRODOTTO.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCantina && matchesQuery;
     });
-  }, [selectedCantina, searchQuery]);
+  }, [selectedCantina, searchQuery, wines]);
 
   const handleResetFilters = () => {
     setSelectedCantina(isAdmin ? "all" : (cantinaVisibile || "all"));
@@ -79,8 +101,8 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
   };
 
   const selectedWineName = useMemo(() => {
-    return MOCK_WINES.find(w => w.id === selectedWineId)?.nome || "";
-  }, [selectedWineId]);
+    return wines.find(w => w.ID_PRODOTTO === selectedWineId)?.NOME_PRODOTTO || "";
+  }, [selectedWineId, wines]);
 
   return (
     <header className="flex flex-row items-center justify-between w-full h-16 px-2 gap-4 bg-white border-b border-gray-200 z-20">
@@ -91,7 +113,7 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
             <Search className="h-4 w-4 text-gray-400 mr-2 shrink-0" />
             <input 
               type="text" 
-              placeholder="Cerca per nome o ID prodotto..." 
+              placeholder={isLoading ? "Caricamento prodotti..." : "Cerca per nome o ID prodotto..."}
               className="bg-transparent border-none text-sm focus:ring-0 w-full p-0"
               value={isDropdownOpen ? searchQuery : (selectedWineName || searchQuery)}
               onChange={(e) => {
@@ -99,6 +121,7 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
                 setIsDropdownOpen(true);
               }}
               onFocus={() => setIsDropdownOpen(true)}
+              disabled={isLoading}
             />
             {(searchQuery || selectedWineId) && (
               <button 
@@ -115,27 +138,27 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
               {filteredWines.length > 0 ? (
                 filteredWines.map(wine => (
                   <div 
-                    key={wine.id}
+                    key={wine.ID_PRODOTTO}
                     className={cn(
                       "px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center",
-                      selectedWineId === wine.id && "bg-blue-50 text-blue-700 font-medium"
+                      selectedWineId === wine.ID_PRODOTTO && "bg-blue-50 text-blue-700 font-medium"
                     )}
                     onClick={() => {
-                      setSelectedWineId(wine.id);
-                      setSearchQuery(wine.nome);
+                      setSelectedWineId(wine.ID_PRODOTTO);
+                      setSearchQuery(wine.NOME_PRODOTTO);
                       setIsDropdownOpen(false);
                     }}
                   >
                     <div className="flex flex-col">
-                      <span>{wine.nome}</span>
-                      <span className="text-[10px] text-gray-400">{wine.id} • {wine.cantina}</span>
+                      <span>{wine.NOME_PRODOTTO}</span>
+                      <span className="text-[10px] text-gray-400">{wine.ID_PRODOTTO} • {wine.CANTINA}</span>
                     </div>
-                    {selectedWineId === wine.id && <Check className="h-4 w-4 text-blue-600" />}
+                    {selectedWineId === wine.ID_PRODOTTO && <Check className="h-4 w-4 text-blue-600" />}
                   </div>
                 ))
               ) : (
                 <div className="px-4 py-3 text-sm text-gray-500 italic">
-                  Nessun vino trovato per i criteri selezionati
+                  {isLoading ? "Caricamento..." : "Nessun vino trovato per i criteri selezionati"}
                 </div>
               )}
             </div>
@@ -198,7 +221,7 @@ const TopBar = ({ isCollapsed }: TopBarProps) => {
             {isAdmin ? (
               <>
                 <option value="all">Tutte le Cantine</option>
-                {MOCK_CANTINE.map(c => (
+                {allCantine.map(c => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </>
