@@ -302,6 +302,7 @@ const SentimentAnalysis = () => {
         <div className="bento-box">
           <p className="text-xs font-semibold text-gray-400 uppercase">Sentiment Score</p>
           <p className="text-3xl font-bold text-green-600 mt-2">{stats?.sentimentScore.toFixed(1) || "0.0"}%</p>
+          <p className="text-[10px] text-gray-400 mt-1">Positive sentiment</p>
         </div>
         <div className="bento-box">
           <p className="text-xs font-semibold text-gray-400 uppercase">Totale Recensioni</p>

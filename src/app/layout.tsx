@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import React from "react";
 import "./globals.css";
 import ClientLayout from "@/components/layout/ClientLayout";
-import { NextAuthProvider } from "@/components/providers/NextAuthProvider";
+// import { NextAuthProvider } from "@/components/providers/NextAuthProvider";
 
 export const metadata: Metadata = {
   title: "Antigravity Wine OS",
@@ -17,11 +17,11 @@ export default function RootLayout({
   return (
     <html lang="it" suppressHydrationWarning>
       <body className="antialiased" suppressHydrationWarning>
-        <NextAuthProvider>
+        {/* <NextAuthProvider> */}
           <ClientLayout>
             {children}
           </ClientLayout>
-        </NextAuthProvider>
+        {/* </NextAuthProvider> */}
       </body>
     </html>
   );

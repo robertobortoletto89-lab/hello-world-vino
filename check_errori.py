@@ -2,8 +2,8 @@ import pandas as pd
 import os
 
 def check_errori():
-    file_storico = 'storico_prezzi.csv'
-    file_database = 'database_vini.csv'
+    file_storico = 'public/data/storico_prezzi.csv'
+    file_database = 'public/data/database_vini.csv'
 
     if not os.path.exists(file_storico):
         print(f"Errore: Il file {file_storico} non esiste.")
@@ -14,11 +14,24 @@ def check_errori():
         return
 
     try:
-        # Carica lo storico prezzi (delimitatore virgola)
-        df_storico = pd.read_csv(file_storico)
+        # Carica lo storico prezzi (delimitatore punto e virgola)
+        df_storico = pd.read_csv(file_storico, sep=';')
+        # Rinominiamo le colonne dello storico per compatibilità
+        df_storico = df_storico.rename(columns={
+            'PREZZO_RILEVATO': 'Prezzo',
+            'CANTINA': 'Cantina',
+            'NOME_PRODOTTO': 'Vino',
+            'SITO_ORIGINE': 'Sito'
+        })
         
         # Carica il database dei vini (delimitatore punto e virgola)
         df_database = pd.read_csv(file_database, sep=';')
+        # Rinominiamo le colonne del database per compatibilità
+        df_database = df_database.rename(columns={
+            'NOME_PRODOTTO': 'VINO',
+            'SITO_ORIGINE': 'SITO_ECOMMERCE',
+            'LINK_SCRAPING': 'LINK'
+        })
     except Exception as e:
         print(f"Errore nel caricamento dei file: {e}")
         return

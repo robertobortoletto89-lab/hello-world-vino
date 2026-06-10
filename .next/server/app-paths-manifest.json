@@ -1,6 +1,0 @@
-{
-  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
-  "/api/sentiment/route": "app/api/sentiment/route.js",
-  "/api/prodotti/route": "app/api/prodotti/route.js",
-  "/sentiment-analysis/page": "app/sentiment-analysis/page.js"
-}

@@ -13,9 +13,12 @@ HEADERS = {
     "Accept-Language": "it-IT,it;q=0.9,en-US;q=0.8,en;q=0.7"
 }
 
+# --- SETUP SICURO DELLE DIRECTORY PER NEXT.JS ---
 DIR_SCREENSHOTS = os.path.join('public', 'screenshots')
-if not os.path.exists(DIR_SCREENSHOTS):
-    os.makedirs(DIR_SCREENSHOTS, exist_ok=True)
+DIR_DATA = os.path.join('public', 'data')
+
+os.makedirs(DIR_SCREENSHOTS, exist_ok=True)
+os.makedirs(DIR_DATA, exist_ok=True)
 
 def pulisci_prezzo(testo):
     if not testo: return None
@@ -116,7 +119,6 @@ def estrai_bernabei(soup):
     if tag_prezzo: p_orig = pulisci_prezzo(tag_prezzo.text)
     return {'prezzo_originale': p_orig, 'prezzo_scontato': p_scont, 'stockout': is_stockout}
 
-
 # --- NUOVA FUNZIONE: STRATEGIA 2 - SCATTO E TIMBRO DIGITALE (AUDIT TRAIL) ---
 def cattura_e_timbri_screenshot(url, id_prodotto, motivo):
     print(f"📸 [TRIGGER: {motivo}] Avvio Playwright per prova fotografica...")
@@ -126,44 +128,54 @@ def cattura_e_timbri_screenshot(url, id_prodotto, motivo):
     percorso_temporaneo = os.path.join(DIR_SCREENSHOTS, f"temp_{id_prodotto}.png")
 
     try:
-        # 1. Scatto dello screenshot pulito (Upper Viewport per massima stabilità tra i siti)
         with sync_playwright() as p:
             browser = p.chromium.launch(headless=True)
             page = browser.new_page()
             page.set_viewport_size({"width": 1280, "height": 800})
             page.goto(url, timeout=30000, wait_until="networkidle")
-            page.wait_for_timeout(2000) # Attesa stabilizzazione elementi
+            page.wait_for_timeout(2000) 
+            page.add_style_tag(content="""
+    [id*='cookie' i], [class*='cookie' i], 
+    [id*='popup' i], [class*='popup' i], 
+    [id*='banner' i], [class*='banner' i], 
+    [id*='chat' i], [class*='chat' i], 
+    [id*='consent' i], [class*='consent' i],
+    [id*='modal' i], [class*='modal' i],
+    [id*='dialog' i], [class*='dialog' i],
+    iframe { 
+        display: none !important; 
+        opacity: 0 !important; 
+        visibility: hidden !important; 
+        z-index: -9999 !important;
+        pointer-events: none !important;
+    }
+""")
+            page.wait_for_timeout(1000)
             page.screenshot(path=percorso_temporaneo)
             browser.close()
 
-        # 2. Applicazione del Timbro Digitale con Pillow (Metodo 2)
         img = Image.open(percorso_temporaneo)
         draw = ImageDraw.Draw(img)
         
-        # Prepariamo i testi dell'Audit Trail
         testo_data = f"DATA/ORA: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
         testo_url = f"URL: {url[:80]}..." if len(url) > 80 else f"URL: {url}"
         testo_motivo = f"NOTIFICA: VIOLAZIONE COMMERCIALE [{motivo}]"
 
-        # Creazione della fascia nera di overlay in basso ad alto contrasto
         larghezza, altezza = img.size
         altezza_fascia = 90
         draw.rectangle([(0, altezza - altezza_fascia), (larghezza, altezza)], fill=(0, 0, 0))
 
-        # Scrittura testi (usa font di default se i ttf di sistema non sono pronti)
         try:
             font = ImageFont.load_default()
         except:
             font = None
 
         draw.text((20, altezza - 80), testo_data, fill=(255, 255, 255), font=font)
-        draw.text((20, altezza - 55), testo_url, fill=(255, 255, 0), font=font) # Giallo per evidenziare il link
-        draw.text((20, altezza - 30), testo_motivo, fill=(255, 100, 100), font=font) # Rosso per il motivo
+        draw.text((20, altezza - 55), testo_url, fill=(255, 255, 0), font=font) 
+        draw.text((20, altezza - 30), testo_motivo, fill=(255, 100, 100), font=font) 
 
-        # 3. Compressione drastica e salvataggio in WebP (Ottimizzazione pesi)
         img.save(percorso_salvataggio, "WEBP", quality=75)
         
-        # Pulizia file temporaneo pesante
         if os.path.exists(percorso_temporaneo):
             os.remove(percorso_temporaneo)
             
@@ -175,10 +187,9 @@ def cattura_e_timbri_screenshot(url, id_prodotto, motivo):
         if os.path.exists(percorso_temporaneo): os.remove(percorso_temporaneo)
         return None
 
-
 def avvia_scraping():
-    FILE_INPUT = 'database_vini.csv' 
-    FILE_OUTPUT = 'storico_prezzi.csv'
+    FILE_INPUT = os.path.join(DIR_DATA, 'database_vini.csv')
+    FILE_OUTPUT = os.path.join(DIR_DATA, 'storico_prezzi.csv')
     
     if not os.path.exists(FILE_INPUT):
         print(f"Errore: File {FILE_INPUT} non trovato!")
@@ -204,7 +215,6 @@ def avvia_scraping():
         nome_prodotto = str(row.get('NOME_PRODOTTO', 'Sconosciuto')).strip()
         sito_origine = str(row.get('SITO_ORIGINE', '')).strip().lower()
         
-        # Lettura del prezzo base impostato dall'utente
         prezzo_base = row.get('PREZZO_BASE')
         try:
             prezzo_base = float(str(prezzo_base).replace(',', '.')) if pd.notna(prezzo_base) else None
@@ -216,7 +226,6 @@ def avvia_scraping():
         print(f"Scraping standard: {cantina} - {nome_prodotto} su {sito_origine}...")
         dati = {'prezzo_originale': None, 'prezzo_scontato': None, 'stockout': False}
         
-        # 1. Controllo testuale super veloce (BS4 + Requests)
         try:
             response = requests.get(url, headers=HEADERS, timeout=15)
             if response.status_code == 200:
@@ -228,7 +237,6 @@ def avvia_scraping():
                 elif 'bernabei' in sito_origine: dati = estrai_bernabei(soup)
         except Exception: pass
 
-        # 2. LOGICA CONTROLLO TRIGGER PER LO SCREENSHOT
         screenshot_path = None
         trigger_reason = None
         
@@ -241,28 +249,27 @@ def avvia_scraping():
         elif dati['prezzo_scontato'] is not None:
             trigger_reason = "SCONTO_RILEVATO"
 
-        # Se uno dei tre casi si è avverato, scatta la foto
         if trigger_reason:
             screenshot_path = cattura_e_timbri_screenshot(url, id_prodotto, trigger_reason)
 
         record = {
             'DATA_ESTRAZIONE': oggi,
-            'CANTINA': cantina,
             'ID_PRODOTTO': id_prodotto,
+            'CANTINA': cantina,
             'NOME_PRODOTTO': nome_prodotto,
             'SITO_ORIGINE': sito_origine.capitalize(),
             'PREZZO_RILEVATO': dati['prezzo_originale'],
             'PREZZO_SCONTATO': dati['prezzo_scontato'],
             'STOCKOUT': 'SI' if dati['stockout'] else 'NO',
-            'LINK_SCRAPING': url,
             'TRIGGER_REASON': trigger_reason if trigger_reason else 'REGOLARE',
-            'SCREENSHOT_PATH': screenshot_path if screenshot_path else ''
+            'SCREENSHOT_PATH': screenshot_path if screenshot_path else '',
+            'LINK_SCRAPING': url
         }
         risultati.append(record)
 
-    # 3. SALVATAGGIO E UNIONE STORICO
     if risultati:
         df_nuovi = pd.DataFrame(risultati)
+        # Array originale a 11 colonne: il join avverrà su Next.js tramite ID_PRODOTTO o NOME_PRODOTTO
         ordine_colonne = ['DATA_ESTRAZIONE', 'ID_PRODOTTO', 'CANTINA', 'NOME_PRODOTTO', 'SITO_ORIGINE', 'PREZZO_RILEVATO', 'PREZZO_SCONTATO', 'STOCKOUT', 'TRIGGER_REASON', 'SCREENSHOT_PATH', 'LINK_SCRAPING']
         
         if os.path.exists(FILE_OUTPUT):
@@ -280,7 +287,7 @@ def avvia_scraping():
         
         df_finale = df_finale[ordine_colonne]
         df_finale.to_csv(FILE_OUTPUT, sep=';', encoding='utf-8-sig', index=False)
-        print("✅ Database storico prezzi aggiornato con colonne di Audit Trail Fotografico.")
+        print(f"✅ Database storico prezzi aggiornato in: {FILE_OUTPUT}")
 
 if __name__ == "__main__":
     avvia_scraping()

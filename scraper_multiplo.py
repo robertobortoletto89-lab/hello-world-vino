@@ -74,7 +74,7 @@ def estrai_recensioni_vivino(vino, max_reviews=100):
     return recensioni_estratte[:max_reviews]
 
 # --- 2. ESECUZIONE MULTIPLA E SALVATAGGIO ---
-file_csv = "sentiment_vini_raw.csv"
+file_csv = "public/data/sentiment_vini_raw.csv"
 tutte_le_recensioni = []
 
 # Ciclo su tutte le bottiglie della lista
@@ -99,7 +99,7 @@ if tutte_le_recensioni:
             
         except Exception as e:
             # IL SALVAVITA: Se non riesce a leggere, crea un file a parte!
-            file_emergenza = f"sentiment_EMERGENZA_{datetime.now().strftime('%H%M%S')}.csv"
+            file_emergenza = f"public/data/sentiment_EMERGENZA_{datetime.now().strftime('%H%M%S')}.csv"
             df_nuovi.to_csv(file_emergenza, index=False, sep=';', encoding='utf-8-sig')
             print(f"\n🚨 ERRORE CRITICO in lettura del vecchio file: {e}")
             print(f"⚠️ Per non sovrascrivere, ho salvato i nuovi dati in: {file_emergenza}")

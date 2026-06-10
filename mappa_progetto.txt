@@ -1,5 +1,8 @@
 .
+├── .antigravitycli
+│   └── 0598a3f5-f86d-4034-92e1-f75346de6eb4.json -> /home/codespace/.gemini/config/projects/0598a3f5-f86d-4034-92e1-f75346de6eb4.json
 ├── .env
+├── .eslintrc.json
 ├── .github
 │   └── workflows
 │       ├── istruzioni_gemini.json
@@ -8,6 +11,7 @@
 ├── README.md
 ├── __pycache__
 │   └── bot_prezzi.cpython-312.pyc
+├── agy.yaml
 ├── app.py
 ├── bot_prezzi.py
 ├── bot_sentiment_ai.py
@@ -24,11 +28,53 @@
 │   ├── dev.db
 │   └── schema.prisma
 ├── public
-│   └── data
-│       ├── database_vini.csv
-│       ├── sentiment_vini_elaborato.csv
-│       ├── sentiment_vini_raw.csv
-│       └── storico_prezzi.csv
+│   ├── data
+│   │   ├── database_vini.csv
+│   │   ├── sentiment_vini_elaborato.csv
+│   │   ├── sentiment_vini_raw.csv
+│   │   └── storico_prezzi.csv
+│   └── screenshots
+│       ├── AG-AMAR-VP-01_20260522_064859.webp
+│       ├── AG-LUGA-VP-01_20260521_101019.webp
+│       ├── AG-LUGA-VP-01_20260521_101025.webp
+│       ├── AG-LUGA-VP-01_20260522_064912.webp
+│       ├── AG-LUGA-VP-01_20260522_064919.webp
+│       ├── AG-PATO-ROVE-CF-01_20260521_100927.webp
+│       ├── AG-PATO-ROVE-CF-01_20260521_100933.webp
+│       ├── AG-PATO-ROVE-CF-01_20260521_100944.webp
+│       ├── AG-PATO-ROVE-CF-01_20260522_064829.webp
+│       ├── AG-PATO-ROVE-CF-01_20260522_064836.webp
+│       ├── AG-PATO-ROVE-CF-01_20260522_064846.webp
+│       ├── AG-ROVE-CF-01_20260521_101037.webp
+│       ├── AG-ROVE-CF-01_20260521_101047.webp
+│       ├── AG-ROVE-CF-01_20260522_064932.webp
+│       ├── AG-ROVE-CF-01_20260522_064943.webp
+│       ├── MA-AMAR-CS-01_20260521_100824.webp
+│       ├── MA-AMAR-CS-01_20260521_100830.webp
+│       ├── MA-AMAR-CS-01_20260521_100838.webp
+│       ├── MA-AMAR-CS-01_20260522_064719.webp
+│       ├── MA-AMAR-CS-01_20260522_064727.webp
+│       ├── MA-AMAR-CS-01_20260522_064735.webp
+│       ├── MA-ROMA-RS-01_20260521_100916.webp
+│       ├── MA-ROMA-RS-01_20260522_064818.webp
+│       ├── MA-ROVE-CF-01_20260521_100850.webp
+│       ├── MA-ROVE-CF-01_20260521_100900.webp
+│       ├── MA-ROVE-CF-01_20260522_064748.webp
+│       ├── MA-ROVE-CF-01_20260522_064759.webp
+│       ├── MA-SOAV-BF-01_20260521_100908.webp
+│       ├── MA-SOAV-BF-01_20260522_064809.webp
+│       ├── SM-PROS-BR-01_20260521_101056.webp
+│       ├── SM-PROS-BR-01_20260522_064953.webp
+│       ├── SM-PROS-ED-01_20260521_101142.webp
+│       ├── SM-PROS-ED-01_20260522_065039.webp
+│       ├── VS-PROS-BR-01_20260521_100814.webp
+│       ├── VS-PROS-BR-01_20260522_064709.webp
+│       ├── VS-PROS-ED-MM_20260521_100803.webp
+│       ├── VS-PROS-ED-MM_20260522_064657.webp
+│       ├── ZN-PROS-SP-01_20260521_101156.webp
+│       ├── ZN-PROS-SP-01_20260522_065056.webp
+│       ├── ZN-VALP-RS-01_20260521_101151.webp
+│       └── ZN-VALP-RS-01_20260522_065049.webp
 ├── requirements.txt
 ├── scraper_multiplo.py
 ├── scraper_reale.py
@@ -40,7 +86,10 @@
 │   │   └── data-actions.ts
 │   ├── app
 │   │   ├── api
-│   │   │   └── auth
+│   │   │   ├── auth
+│   │   │   ├── prodotti
+│   │   │   ├── sentiment
+│   │   │   └── storico
 │   │   ├── globals.css
 │   │   ├── layout.tsx
 │   │   ├── page.tsx
@@ -49,12 +98,17 @@
 │   │   └── sentiment-analysis
 │   │       └── page.tsx
 │   ├── components
+│   │   ├── Chart.tsx
+│   │   ├── PriceIntelligence.tsx
+│   │   ├── SentimentAnalysis.tsx
 │   │   ├── layout
+│   │   │   ├── ClientLayout.tsx
 │   │   │   ├── Sidebar.tsx
 │   │   │   └── TopBar.tsx
 │   │   └── providers
 │   │       └── NextAuthProvider.tsx
 │   ├── lib
+│   │   ├── auth.ts
 │   │   ├── csv-parser.ts
 │   │   ├── prisma.ts
 │   │   └── utils.ts
@@ -64,6 +118,7 @@
 ├── test_modelli.py
 ├── test_scraper.py
 ├── tsconfig.json
+├── tsconfig.tsbuildinfo
 └── utenti.csv
 
-18 directories, 49 files
+23 directories, 99 files

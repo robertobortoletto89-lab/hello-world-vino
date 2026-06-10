@@ -22,7 +22,7 @@ st.markdown("""
 @st.cache_data(ttl=3600)
 def load_all_data():
     # Caricamento Storico Prezzi
-    df_prezzi = pd.read_csv("storico_prezzi.csv", sep=";")
+    df_prezzi = pd.read_csv("public/data/storico_prezzi.csv", sep=";")
     df_prezzi['DATA_ESTRAZIONE'] = pd.to_datetime(df_prezzi['DATA_ESTRAZIONE'], format='mixed', dayfirst=True, errors='coerce').dt.normalize()
     
     for col in ['PREZZO_SCONTATO', 'PREZZO_ORIGINALE']:
@@ -30,14 +30,14 @@ def load_all_data():
             df_prezzi[col] = pd.to_numeric(df_prezzi[col].astype(str).str.replace(',', '.'), errors='coerce')
     
     # Caricamento Database Vini
-    df_vini = pd.read_csv("database_vini.csv", sep=";")
+    df_vini = pd.read_csv("public/data/database_vini.csv", sep=";")
     if 'PREZZO_BASE' in df_vini.columns:
         df_vini['PREZZO_BASE'] = pd.to_numeric(df_vini['PREZZO_BASE'].astype(str).str.replace(',', '.'), errors='coerce')
         
     df_merged = pd.merge(df_prezzi, df_vini[['CANTINA', 'NOME_PRODOTTO', 'PREZZO_BASE']], on=['CANTINA', 'NOME_PRODOTTO'], how='left')
     
     # Caricamento Sentiment Elaborato
-    df_sent = pd.read_csv("sentiment_vini_elaborato.csv", sep=";")
+    df_sent = pd.read_csv("public/data/sentiment_vini_elaborato.csv", sep=";")
     df_sent['DATA_COMMENTO'] = pd.to_datetime(df_sent['DATA_COMMENTO'], format='mixed', dayfirst=True, errors='coerce').dt.normalize()
     if 'PAROLE_CHIAVE_ESTRATTE' in df_sent.columns:
         df_sent['PAROLE_CHIAVE_ESTRATTE'] = df_sent['PAROLE_CHIAVE_ESTRATTE'].fillna('')

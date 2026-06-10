@@ -10,6 +10,7 @@ export async function parseCSV<T>(filePath: string): Promise<T[]> {
       skipEmptyLines: true,
       dynamicTyping: true,
       delimiter: "", // Auto-detect
+      transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase(),
       complete: (results) => {
         resolve(results.data as T[]);
       },

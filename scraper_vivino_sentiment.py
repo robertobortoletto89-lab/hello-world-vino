@@ -74,7 +74,7 @@ dati = estrai_recensioni_vivino(WINE_ID)
 
 if dati:
     df_nuovi = pd.DataFrame(dati)
-    file_csv = "sentiment_vini_raw.csv"
+    file_csv = "public/data/sentiment_vini_raw.csv"
     
     # Salvataggio relazionale e blindato per Excel (utf-8-sig)
     if os.path.isfile(file_csv):

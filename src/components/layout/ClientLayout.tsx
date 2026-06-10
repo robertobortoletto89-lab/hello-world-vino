@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
+import AIChat from "../AIChat";
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -16,6 +17,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
           {children}
         </main>
       </div>
+      <AIChat />
     </div>
   );
 }

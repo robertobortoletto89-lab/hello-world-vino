@@ -32,7 +32,12 @@ export const authOptions: NextAuthOptions = {
       if (!user.email) return false;
       const filePath = path.join(process.cwd(), "utenti.csv");
       const fileContent = await fs.readFile(filePath, "utf8");
-      const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
+      const parsed = Papa.parse(fileContent, { 
+        header: true, 
+        skipEmptyLines: true, 
+        delimiter: ";",
+        transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
+      });
       const utenti = parsed.data as any[];
       return !!utenti.find((u) => u.EMAIL.toLowerCase() === user.email?.toLowerCase());
     },
@@ -40,7 +45,12 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         const filePath = path.join(process.cwd(), "utenti.csv");
         const fileContent = await fs.readFile(filePath, "utf8");
-        const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
+        const parsed = Papa.parse(fileContent, { 
+          header: true, 
+          skipEmptyLines: true, 
+          delimiter: ";",
+          transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
+        });
         const utenteDati = (parsed.data as any[]).find(u => u.EMAIL.toLowerCase() === user.email.toLowerCase());
         if (utenteDati) {
           token.ruolo = utenteDati.RUOLO;

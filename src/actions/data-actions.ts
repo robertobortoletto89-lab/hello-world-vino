@@ -28,6 +28,7 @@ export async function getWineries() {
       header: true,
       skipEmptyLines: true,
       delimiter: ";",
+      transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
     });
 
     const allData = parsed.data as any[];
@@ -61,6 +62,7 @@ export async function getSecureData(fileName: string) {
       skipEmptyLines: true,
       dynamicTyping: true,
       delimiter: "", // Auto-detect
+      transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
     });
 
     const allData = parsed.data as any[];

@@ -32,8 +32,8 @@ Recensione da analizzare:
 
 # --- 3. MOTORE DI ELABORAZIONE ---
 def elabora_sentiment():
-    file_input = 'sentiment_vini_raw.csv'
-    file_output = 'sentiment_vini_elaborato.csv'
+    file_input = 'public/data/sentiment_vini_raw.csv'
+    file_output = 'public/data/sentiment_vini_elaborato.csv'
 
     if not os.path.exists(file_input):
         print(f"❌ Errore: File {file_input} non trovato. Lancia prima lo scraper di Vivino!")

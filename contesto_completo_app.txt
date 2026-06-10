@@ -1,4 +1,4 @@
-]633;E;for file in $(find src -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.css" \\)) package.json tsconfig.json next.config.mjs next.config.js utenti.csv;6d2e5506-cbef-4fc9-8702-e370b3b5354f]633;C========================================
+]633;E;for file in $(find src -type f \\( -name "*.ts" -o -name "*.tsx" -o -name "*.css" \\)) package.json tsconfig.json next.config.mjs next.config.js utenti.csv;1a16ebc8-47ea-4654-b5f4-a0a4d690373f]633;C========================================
 FILE: src/components/providers/NextAuthProvider.tsx
 ========================================
 "use client";
@@ -19,19 +19,23 @@ FILE: src/components/layout/Sidebar.tsx
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { LayoutDashboard, TrendingUp, MessageSquare, Filter, Mail } from "lucide-react";
+import { TrendingUp, MessageSquare, Filter, Mail, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const Sidebar = () => {
+interface SidebarProps {
+  isCollapsed: boolean;
+  setIsCollapsed: (value: boolean) => void;
+}
+
+const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const pathname = usePathname();
   const { data: session } = useSession();
 
-  // Estraiamo in modo sicuro i dati dell'utente
-  const nomeUtente = (session?.user as any)?.nome || session?.user?.email?.split('@')[0] || "Utente";
-  const ruolo = (session?.user as any)?.ruolo || "User";
-  const cantina = (session?.user as any)?.cantinaVisibile === "ALL" ? "Global Access" : (session?.user as any)?.cantinaVisibile || "Nessuna Cantina";
+  // Estrazione dati esclusivamente dalla sessione
+  const nomeUtente = (session?.user as any)?.nome || "Utente";
+  const cantinaVisibile = (session?.user as any)?.cantinaVisibile;
+  const cantinaDisplay = cantinaVisibile === "ALL" ? "Global Access" : cantinaVisibile || "Nessuna Cantina";
   
-  // Creiamo le iniziali (es. Roberto = RO)
   const iniziali = nomeUtente.substring(0, 2).toUpperCase();
 
   const menuItems = [
@@ -57,17 +61,31 @@ const Sidebar = () => {
   ];
 
   return (
-    <aside className="w-64 bg-sidebar-bg text-white flex flex-col h-full overflow-y-auto">
-      <div className="p-6">
-        <h1 className="text-xl font-bold tracking-tight">WINE OS</h1>
+    <aside className={cn(
+      "bg-sidebar-bg text-white flex flex-col h-full transition-all duration-300 relative z-30 flex-shrink-0",
+      isCollapsed ? "w-16" : "w-64"
+    )}>
+      <div className="p-6 flex items-center justify-between">
+        {!isCollapsed && <h1 className="text-xl font-bold tracking-tight">WINE OS</h1>}
+        <button 
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className={cn(
+            "p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors border border-gray-700",
+            isCollapsed ? "mx-auto" : "absolute -right-3 top-6"
+          )}
+        >
+          {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+        </button>
       </div>
       
-      <nav className="flex-1 px-4 space-y-8">
+      <nav className="flex-1 px-4 space-y-8 overflow-y-auto overflow-x-hidden">
         {menuItems.map((section) => (
           <div key={section.title}>
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 px-2">
-              {section.title}
-            </h2>
+            {!isCollapsed && (
+              <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4 px-2">
+                {section.title}
+              </h2>
+            )}
             <div className="space-y-1">
               {section.items.map((item) => {
                 const isActive = pathname === item.href;
@@ -79,11 +97,13 @@ const Sidebar = () => {
                       "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
                       isActive
                         ? "bg-primary-blue text-white"
-                        : "text-gray-300 hover:bg-sidebar-hover hover:text-white"
+                        : "text-gray-300 hover:bg-sidebar-hover hover:text-white",
+                      isCollapsed && "justify-center px-0"
                     )}
+                    title={isCollapsed ? item.name : ""}
                   >
-                    <item.icon className="mr-3 h-5 w-5" />
-                    {item.name}
+                    <item.icon className={cn("h-5 w-5 flex-shrink-0", !isCollapsed && "mr-3")} />
+                    {!isCollapsed && <span className="truncate">{item.name}</span>}
                   </Link>
                 );
               })}
@@ -93,14 +113,16 @@ const Sidebar = () => {
       </nav>
       
       <div className="p-4 border-t border-gray-800">
-        <div className="flex items-center p-2">
-          <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center mr-3">
+        <div className={cn("flex items-center p-2", isCollapsed && "justify-center")}>
+          <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center min-w-[32px] flex-shrink-0">
             <span className="text-xs font-bold">{iniziali}</span>
           </div>
-          <div className="overflow-hidden">
-            <p className="text-sm font-medium truncate">{nomeUtente}</p>
-            <p className="text-xs text-gray-400 italic truncate">{cantina}</p>
-          </div>
+          {!isCollapsed && (
+            <div className="ml-3 overflow-hidden">
+              <p className="text-sm font-medium truncate">{nomeUtente}</p>
+              <p className="text-xs text-gray-400 italic truncate">{cantinaDisplay}</p>
+            </div>
+          )}
         </div>
       </div>
     </aside>
@@ -110,60 +132,314 @@ const Sidebar = () => {
 export default Sidebar;
 
 
+
+========================================
+FILE: src/components/layout/ClientLayout.tsx
+========================================
+"use client";
+
+import React, { useState } from "react";
+import Sidebar from "./Sidebar";
+import TopBar from "./TopBar";
+
+export default function ClientLayout({ children }: { children: React.ReactNode }) {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  return (
+    <div className="flex h-screen w-full overflow-hidden bg-gray-50">
+      <Sidebar isCollapsed={isCollapsed} setIsCollapsed={setIsCollapsed} />
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        <TopBar isCollapsed={isCollapsed} />
+        <main className="flex-1 overflow-y-auto p-6 w-full">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+
+
 ========================================
 FILE: src/components/layout/TopBar.tsx
 ========================================
 "use client";
 
-import { Search, RotateCcw, User, ChevronDown, LogOut } from "lucide-react";
+import { useState, useMemo, useRef, useEffect } from "react";
+import { Search, RotateCcw, User, ChevronDown, LogOut, Calendar, X, Check } from "lucide-react";
 import { useSession, signOut } from "next-auth/react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { cn } from "@/lib/utils";
 
-const TopBar = () => {
+interface TopBarProps {
+  isCollapsed: boolean;
+}
+
+interface Product {
+  ID_PRODOTTO: string;
+  NOME_PRODOTTO: string;
+  CANTINA: string;
+}
+
+const TopBar = ({ isCollapsed }: TopBarProps) => {
   const { data: session } = useSession();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   
-  // Logic for displaying the username with fallbacks
-  const nomeUtente = (session?.user as any)?.nome || session?.user?.email?.split('@')[0] || "Utente";
+  // Estrazione dati dalla sessione
+  const nomeUtente = (session?.user as any)?.nome || "Utente";
+  const ruolo = (session?.user as any)?.ruolo;
+  const cantinaVisibile = (session?.user as any)?.cantinaVisibile;
+  const isAdmin = ruolo === 'ADMIN' || session?.user?.email === "admin@antigravity.it";
+
+  // Stati per i dati reali
+  const [wines, setWines] = useState<Product[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Stati per i filtri (inizializzati da URL o default)
+  const [selectedCantina, setSelectedCantina] = useState(searchParams.get("cantina") || (isAdmin ? "all" : (cantinaVisibile || "all")));
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedWineId, setSelectedWineId] = useState<string | null>(searchParams.get("id_prodotto"));
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  
+  // Stati per le date
+  const [startDate, setStartDate] = useState(searchParams.get("data_inizio") || "");
+  const [endDate, setEndDate] = useState(searchParams.get("data_fine") || "");
+  
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Helper per aggiornare l'URL
+  const updateURL = (params: Record<string, string | null>) => {
+    const current = new URLSearchParams(Array.from(searchParams.entries()));
+    
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) {
+        current.set(key, value);
+      } else {
+        current.delete(key);
+      }
+    });
+
+    const search = current.toString();
+    const query = search ? `?${search}` : "";
+    router.push(`${pathname}${query}`);
+  };
+
+  // Caricamento prodotti dall'API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setIsLoading(true);
+      try {
+        const response = await fetch('/api/prodotti');
+        if (response.ok) {
+          const data = await response.json();
+          setWines(data);
+        }
+      } catch (error) {
+        console.error("Errore nel caricamento prodotti:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    if (session) {
+      fetchProducts();
+    }
+  }, [session]);
+
+  // Sincronizza stati con URL quando cambiano
+  useEffect(() => {
+    updateURL({
+      cantina: selectedCantina === "all" ? null : selectedCantina,
+      id_prodotto: selectedWineId,
+      data_inizio: startDate || null,
+      data_fine: endDate || null
+    });
+  }, [selectedCantina, selectedWineId, startDate, endDate]);
+
+  const allCantine = useMemo(() => {
+    return Array.from(new Set(wines.map(w => w.CANTINA))).sort();
+  }, [wines]);
+
+  // Chiudi il dropdown quando si clicca fuori
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Filtraggio vini basato su cantina e query di ricerca
+  const filteredWines = useMemo(() => {
+    return wines.filter(wine => {
+      const matchesCantina = selectedCantina === "all" || wine.CANTINA === selectedCantina;
+      const matchesQuery = wine.NOME_PRODOTTO.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                           wine.ID_PRODOTTO.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesCantina && matchesQuery;
+    });
+  }, [selectedCantina, searchQuery, wines]);
+
+  const handleResetFilters = () => {
+    setSelectedCantina(isAdmin ? "all" : (cantinaVisibile || "all"));
+    setSearchQuery("");
+    setSelectedWineId(null);
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const handleSelectAllDates = () => {
+    setStartDate("");
+    setEndDate("");
+  };
+
+  const selectedWineName = useMemo(() => {
+    return wines.find(w => w.ID_PRODOTTO === selectedWineId)?.NOME_PRODOTTO || "";
+  }, [selectedWineId, wines]);
 
   return (
-    <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6 z-20">
-      <div className="flex items-center gap-8">
-        <span className="text-gray-500 font-medium">Dashboard Overview</span>
-        
-        <div className="hidden md:flex items-center bg-gray-100 rounded-md px-3 py-1.5 border border-gray-200">
-          <Search className="h-4 w-4 text-gray-400 mr-2" />
-          <input 
-            type="text" 
-            placeholder="Cerca vini o marketplace..." 
-            className="bg-transparent border-none text-sm focus:ring-0 w-64"
-          />
+    <header className="flex flex-row items-center justify-between w-full h-16 px-2 gap-4 bg-white border-b border-gray-200 z-20">
+      {/* Combobox Ricerca Bottiglia - Flexible */}
+      <div className="flex-1 min-w-[200px] max-w-md" ref={dropdownRef}>
+        <div className="relative">
+          <div className="flex items-center bg-gray-100 rounded-md px-3 py-1.5 border border-gray-200 w-full">
+            <Search className="h-4 w-4 text-gray-400 mr-2 shrink-0" />
+            <input 
+              type="text" 
+              placeholder={isLoading ? "Caricamento prodotti..." : "Cerca per nome o ID prodotto..."}
+              className="bg-transparent border-none text-sm focus:ring-0 w-full p-0"
+              value={isDropdownOpen ? searchQuery : (selectedWineName || searchQuery)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setIsDropdownOpen(true);
+              }}
+              onFocus={() => setIsDropdownOpen(true)}
+              disabled={isLoading}
+            />
+            {(searchQuery || selectedWineId) && (
+              <button 
+                onClick={() => { setSearchQuery(""); setSelectedWineId(null); }}
+                className="ml-2 hover:bg-gray-200 rounded-full p-0.5"
+              >
+                <X className="h-3.5 w-3.5 text-gray-400" />
+              </button>
+            )}
+          </div>
+          
+          {isDropdownOpen && (
+            <div className="absolute top-full left-0 w-full mt-1 bg-white border border-gray-200 rounded-md shadow-lg z-50 max-h-64 overflow-y-auto">
+              {filteredWines.length > 0 ? (
+                filteredWines.map(wine => (
+                  <div 
+                    key={wine.ID_PRODOTTO}
+                    className={cn(
+                      "px-4 py-2 text-sm hover:bg-blue-50 cursor-pointer flex justify-between items-center",
+                      selectedWineId === wine.ID_PRODOTTO && "bg-blue-50 text-blue-700 font-medium"
+                    )}
+                    onClick={() => {
+                      setSelectedWineId(wine.ID_PRODOTTO);
+                      setSearchQuery(wine.NOME_PRODOTTO);
+                      setIsDropdownOpen(false);
+                    }}
+                  >
+                    <div className="flex flex-col">
+                      <span>{wine.NOME_PRODOTTO}</span>
+                      <span className="text-[10px] text-gray-400">{wine.ID_PRODOTTO} • {wine.CANTINA}</span>
+                    </div>
+                    {selectedWineId === wine.ID_PRODOTTO && <Check className="h-4 w-4 text-blue-600" />}
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-sm text-gray-500 italic">
+                  {isLoading ? "Caricamento..." : "Nessun vino trovato per i criteri selezionati"}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      <div className="flex items-center gap-4">
-        {/* Admin Winery Selector */}
-        {(session?.user as any)?.ruolo === 'ADMIN' && (
-          <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-md">
-            <span className="text-xs font-semibold text-blue-700 uppercase">Cantina:</span>
-            <select className="bg-transparent text-sm font-bold text-blue-900 border-none focus:ring-0 p-0 cursor-pointer">
-              <option value="all">Tutte le Cantine</option>
-              <option value="antigravity">Antigravity Wines</option>
-              <option value="bolgheri">Bolgheri Estate</option>
-            </select>
+      {/* Date Picker Range - Responsive Collapse */}
+      <div className="shrink-0 flex items-center justify-center">
+        <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-md shrink-0">
+          <Calendar className="h-4 w-4 text-gray-500 shrink-0" />
+          
+          <div className="hidden xl:flex items-center gap-2">
+            <input 
+              type="date" 
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="bg-transparent border-none text-[11px] focus:ring-0 p-0 cursor-pointer"
+            />
+            <span className="text-gray-400 text-xs">-</span>
+            <input 
+              type="date" 
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="bg-transparent border-none text-[11px] focus:ring-0 p-0 cursor-pointer"
+            />
           </div>
-        )}
+
+          <button 
+            onClick={handleSelectAllDates}
+            className={cn(
+              "text-[9px] px-1.5 py-0.5 rounded uppercase font-bold transition-colors ml-1",
+              (!startDate && !endDate) 
+                ? "bg-blue-600 text-white" 
+                : "bg-gray-200 text-gray-600 hover:bg-gray-300"
+            )}
+            title="Mostra tutti i periodi"
+          >
+            All
+          </button>
+        </div>
+      </div>
+
+      <div className="shrink-0 flex items-center gap-4">
+        {/* Winery Selector - Fixed */}
+        <div className="flex-none w-48 flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-md relative">
+          <span className="text-[10px] font-bold text-blue-700 uppercase shrink-0">Cantina:</span>
+          <select 
+            value={selectedCantina}
+            onChange={(e) => {
+              setSelectedCantina(e.target.value);
+              setSelectedWineId(null); // Resetta il vino quando cambia la cantina
+              setSearchQuery("");
+            }}
+            disabled={!isAdmin}
+            className={cn(
+              "bg-transparent text-sm font-bold text-blue-900 border-none focus:ring-0 p-0 pr-6 cursor-pointer disabled:cursor-not-allowed appearance-none relative z-10 w-full truncate"
+            )}
+          >
+            {isAdmin ? (
+              <>
+                <option value="all">Tutte le Cantine</option>
+                {allCantine.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </>
+            ) : (
+              <option value={cantinaVisibile || "all"}>{cantinaVisibile || "Nessuna"}</option>
+            )}
+          </select>
+          <ChevronDown className="h-4 w-4 text-blue-500 absolute right-3 pointer-events-none" />
+        </div>
 
         <button 
-          onClick={() => window.location.href = '/'}
-          className="flex items-center gap-2 text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50"
+          onClick={handleResetFilters}
+          className="flex items-center gap-2 text-gray-600 hover:text-blue-600 text-sm font-medium transition-colors border border-gray-200 px-3 py-1.5 rounded-md hover:bg-gray-50 whitespace-nowrap group"
         >
-          <RotateCcw className="h-4 w-4" />
-          <span>Reset Filtri</span>
+          <RotateCcw className="h-4 w-4 group-active:rotate-180 transition-transform duration-300" />
+          <span className="hidden sm:inline">Reset</span>
         </button>
 
-        <div className="h-8 w-[1px] bg-gray-200 mx-2"></div>
+        <div className="h-8 w-[1px] bg-gray-200 mx-1 hidden sm:block"></div>
 
         <div className="flex items-center gap-3 relative group">
-          <span className="text-sm font-medium text-gray-700">Ciao, {nomeUtente}</span>
+          <span className="text-sm font-medium text-gray-700 hidden lg:block italic">Ciao, {nomeUtente}</span>
           
           <div className="flex items-center gap-2 cursor-pointer hover:bg-gray-50 p-1 rounded-md transition-colors">
             <div className="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center text-white">
@@ -172,8 +448,10 @@ const TopBar = () => {
             <ChevronDown className="h-4 w-4 text-gray-400" />
           </div>
 
-          {/* Dropdown Menu */}
           <div className="absolute right-0 top-full mt-2 hidden group-hover:block bg-white border border-gray-200 shadow-lg rounded-md py-1 w-48 z-50">
+            <div className="px-4 py-2 border-b border-gray-100 lg:hidden">
+              <p className="text-sm font-medium text-gray-900">Ciao, {nomeUtente}</p>
+            </div>
             <button 
               onClick={() => signOut({ callbackUrl: '/' })}
               className="flex items-center gap-2 text-red-600 hover:bg-red-50 w-full text-left px-4 py-2 text-sm transition-colors"
@@ -193,6 +471,1230 @@ export default TopBar;
 
 
 ========================================
+FILE: src/components/SentimentAnalysis.tsx
+========================================
+"use client";
+
+import { useEffect, useState, useMemo } from "react";
+import { useSearchParams } from "next/navigation";
+import { 
+  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell as BarCell
+} from "recharts";
+import { Star, X, Info, Filter, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Review {
+  DATA_COMMENTO: string;
+  ID_PRODOTTO: string;
+  NOME_PRODOTTO: string;
+  SITO_ORIGINE: string;
+  RATING_ORIGINALE: number;
+  TESTO_COMMENTO: string;
+  SENTIMENT_SCORE: string;
+  PAROLE_CHIAVE_ESTRATTE: string;
+}
+
+interface ProductInfo {
+  ID_PRODOTTO: string;
+  CANTINA: string;
+  VINO: string;
+}
+
+const RADIAN = Math.PI / 180;
+const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent }: { cx: number; cy: number; midAngle: number; innerRadius: number; outerRadius: number; percent: number }) => {
+  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+  const x = cx + radius * Math.cos(-midAngle * RADIAN);
+  const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+  if (percent < 0.05) return null;
+
+  return (
+    <text x={x} y={y} fill="black" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central" className="text-[10px] font-bold">
+      {`${(percent * 100).toFixed(0)}%`}
+    </text>
+  );
+};
+
+const EmptyState = ({ message }: { message: string }) => (
+  <div className="flex flex-col items-center justify-center h-full text-gray-400 space-y-2 p-8 bg-gray-50 border border-dashed rounded-md">
+    <AlertCircle className="h-10 w-10 opacity-20" />
+    <p className="text-sm italic text-center font-medium">{message}</p>
+  </div>
+);
+
+const CustomWordCloud = ({ 
+  words, 
+  onWordClick, 
+  selectedWord, 
+  colorType = "blue" 
+}: { 
+  words: {text: string, value: number}[], 
+  onWordClick: (w: string) => void, 
+  selectedWord: string | null,
+  colorType?: "green" | "red" | "blue"
+}) => {
+  if (!words || words.length === 0) return <EmptyState message="Nessuna parola chiave disponibile" />;
+
+  const maxFreq = Math.max(...words.map(w => Number(w.value) || 0), 1);
+
+  const getColorClasses = (isSelected: boolean, intensity: number) => {
+    if (isSelected) return "bg-blue-600 text-white font-bold scale-110 shadow-md ring-2 ring-blue-300";
+    
+    if (colorType === "green") {
+      if (intensity > 0.8) return "text-green-800 font-extrabold";
+      if (intensity > 0.5) return "text-green-600 font-bold";
+      return "text-green-500 opacity-80 font-medium";
+    }
+    if (colorType === "red") {
+      if (intensity > 0.8) return "text-red-800 font-extrabold";
+      if (intensity > 0.5) return "text-red-600 font-bold";
+      return "text-red-500 opacity-80 font-medium";
+    }
+    return "text-blue-900";
+  };
+
+  return (
+    // 1. & 3. FIX DECAPITAZIONE: pt-28 massiccio per spingere le parole in basso e pt-32 per la negativa
+    <div className={cn(
+      "flex flex-wrap gap-x-4 gap-y-2 justify-center items-center p-4 overflow-y-auto h-full content-center relative",
+      colorType === "red" ? "pt-32" : "pt-28"
+    )}>
+      <style jsx>{`
+        @keyframes float {
+          0% { transform: translateY(0px); }
+          50% { transform: translateY(-3px); }
+          100% { transform: translateY(0px); }
+        }
+        .animate-float {
+          animation: float 3s ease-in-out infinite;
+        }
+      `}</style>
+      {words.map((word, i) => {
+        const val = Number(word.value) || 0;
+        const intensity = val / maxFreq;
+        const fontSizeValue = Math.max(12, Math.min(32, 12 + intensity * 20)) || 14;
+        const opacityValue = Math.max(0.6, Math.min(1, 0.4 + intensity)) || 1;
+        const animationDelay = `${(i * 0.2) % 3}s`;
+
+        return (
+          <span
+            key={`${word.text}-${i}`}
+            onClick={() => onWordClick(word.text)}
+            className={cn(
+              "cursor-pointer transition-all duration-300 hover:scale-125 hover:z-10 px-2 py-1 rounded-lg text-center inline-block animate-float",
+              getColorClasses(selectedWord === word.text, intensity)
+            )}
+            style={{ 
+              fontSize: `${fontSizeValue}px`,
+              opacity: selectedWord === word.text ? 1 : opacityValue,
+              animationDelay: animationDelay,
+              margin: '1px',
+              // 4. SICUREZZA LINE-HEIGHT: lineHeight 1.4 per evitare tagli verticali
+              lineHeight: '1.4'
+            }}
+          >
+            {word.text}
+          </span>
+        );
+      })}
+    </div>
+  );
+};
+
+const SentimentAnalysis = () => {
+  const searchParams = useSearchParams();
+  const selectedProductId = searchParams.get("id_prodotto") || "";
+
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [products, setProducts] = useState<ProductInfo[]>([]);
+  
+  const [selectedSentiment, setSelectedSentiment] = useState<string | null>(null);
+  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+  const [selectedSource, setSelectedSource] = useState<string | null>(null);
+  
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (!selectedProductId) {
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const response = await fetch(`/api/sentiment?id_prodotto=${selectedProductId}`);
+        if (!response.ok) {
+          throw new Error(`Errore HTTP: ${response.status}`);
+        }
+        const data = await response.json();
+        
+        setReviews(Array.isArray(data.reviews) ? data.reviews : []);
+        
+        const uniqueProductsMap = new Map<string, ProductInfo>();
+        (data.products || []).forEach((p: ProductInfo) => {
+          if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
+            uniqueProductsMap.set(p.ID_PRODOTTO, p);
+          }
+        });
+        setProducts(Array.from(uniqueProductsMap.values()));
+      } catch (err: unknown) {
+        console.error("Error loading sentiment data:", err);
+        setError(err instanceof Error ? err.message : "Impossibile caricare i dati");
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, [selectedProductId]);
+
+  const productDetails = useMemo(() => 
+    products.find(p => p.ID_PRODOTTO === selectedProductId), 
+  [products, selectedProductId]);
+
+  const filteredData = useMemo(() => {
+    if (!Array.isArray(reviews)) return [];
+    let filtered = [...reviews];
+    
+    if (selectedSentiment) {
+      filtered = filtered.filter(r => r.SENTIMENT_SCORE === selectedSentiment);
+    }
+    
+    if (selectedWord) {
+      const lowerWord = selectedWord.toLowerCase();
+      filtered = filtered.filter(r => 
+        (r.TESTO_COMMENTO || "").toLowerCase().includes(lowerWord) ||
+        (r.PAROLE_CHIAVE_ESTRATTE || "").toLowerCase().includes(lowerWord)
+      );
+    }
+    
+    if (selectedSource) {
+      filtered = filtered.filter(r => r.SITO_ORIGINE === selectedSource);
+    }
+    
+    return filtered;
+  }, [reviews, selectedSentiment, selectedWord, selectedSource]);
+
+  const stats = useMemo(() => {
+    if (filteredData.length === 0) return null;
+    const avgRating = filteredData.reduce((a, b) => a + Number(b.RATING_ORIGINALE || 0), 0) / filteredData.length;
+    const positiveCount = filteredData.filter(r => r.SENTIMENT_SCORE === "Positivo").length;
+    return {
+      avgRating,
+      sentimentScore: (positiveCount / filteredData.length) * 100,
+      total: filteredData.length
+    };
+  }, [filteredData]);
+
+  const pieData = useMemo(() => {
+    if (filteredData.length === 0) return [];
+    const counts = {
+      Positivo: filteredData.filter(r => r.SENTIMENT_SCORE === "Positivo").length,
+      Neutro: filteredData.filter(r => r.SENTIMENT_SCORE === "Neutro").length,
+      Negativo: filteredData.filter(r => r.SENTIMENT_SCORE === "Negativo").length,
+    };
+    return [
+      { name: "Positivo", value: counts.Positivo, color: "#22c55e" },
+      { name: "Neutro", value: counts.Neutro, color: "#e5e7eb" },
+      { name: "Negativo", value: counts.Negativo, color: "#ef4444" },
+    ].filter(d => d.value > 0);
+  }, [filteredData]);
+
+  const sourceData = useMemo(() => {
+    if (filteredData.length === 0) return [];
+    const counts: Record<string, number> = {};
+    filteredData.forEach(r => {
+      const src = r.SITO_ORIGINE || "Sconosciuto";
+      counts[src] = (counts[src] || 0) + 1;
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
+  }, [filteredData]);
+
+  const getWordCounts = (data: Review[]) => {
+    const counts: Record<string, number> = {};
+    data.forEach(r => {
+      const words = (r.PAROLE_CHIAVE_ESTRATTE || "").split(",")
+        .map(w => w.trim().toLowerCase())
+        .filter(w => w && w.length > 3 && w !== 'undefined' && w !== 'null');
+      words.forEach(w => {
+        counts[w] = (counts[w] || 0) + 1;
+      });
+    });
+    return Object.entries(counts)
+      .map(([text, value]) => ({ text, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 30);
+  };
+
+  const positiveWords = useMemo(() => 
+    getWordCounts(filteredData.filter(r => r.SENTIMENT_SCORE === "Positivo")), 
+  [filteredData]);
+
+  const negativeWords = useMemo(() => 
+    getWordCounts(filteredData.filter(r => r.SENTIMENT_SCORE === "Negativo")), 
+  [filteredData]);
+
+  const resetFilters = () => {
+    setSelectedSentiment(null);
+    setSelectedWord(null);
+    setSelectedSource(null);
+  };
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento sentiment...</div>;
+  if (error) return <div className="p-12 text-center bg-red-50 border border-red-200 rounded-md text-red-700">{error}</div>;
+
+  if (!selectedProductId) return (
+    <div className="p-12 text-center bg-gray-50 border border-dashed rounded-md">
+      <Info className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-gray-900">Nessun prodotto selezionato</h3>
+      <p className="text-gray-500 mt-1">Seleziona un vino per vedere l&apos;analisi.</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
+          <p className="text-gray-500">{productDetails?.CANTINA} - {productDetails?.VINO}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bento-box">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Rating Medio</p>
+          <div className="flex items-center gap-2 mt-2">
+            <p className="text-3xl font-bold text-gray-900">{stats?.avgRating.toFixed(1) || "0.0"}</p>
+            <Star className="h-6 w-6 text-yellow-400 fill-current" />
+          </div>
+        </div>
+        <div className="bento-box">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Sentiment Score</p>
+          <p className="text-3xl font-bold text-green-600 mt-2">{stats?.sentimentScore.toFixed(1) || "0.0"}%</p>
+        </div>
+        <div className="bento-box">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Totale Recensioni</p>
+          <p className="text-3xl font-bold text-blue-900 mt-2">{stats?.total || 0}</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Colonna Sinistra: Donut + Fonti */}
+        <div className="lg:col-span-1 space-y-6">
+          {/* Donut Chart - Altezza ottimizzata 350px */}
+          <div className="bg-white p-6 shadow-sm border rounded-sm h-[350px]">
+            <h3 className="text-lg font-bold mb-4">Share of Sentiment</h3>
+            {pieData.length > 0 ? (
+              <div className="h-[80%]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={5}
+                      dataKey="value"
+                      label={renderCustomizedLabel}
+                      labelLine={false}
+                      onClick={(data) => setSelectedSentiment(data.name === selectedSentiment ? null : data.name)}
+                      cursor="pointer"
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell 
+                          key={`cell-${index}`} 
+                          fill={entry.color} 
+                          stroke={selectedSentiment === entry.name ? "#000" : "none"}
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                    <RechartTooltip />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <EmptyState message="Nessun dato sentiment" />
+            )}
+          </div>
+
+          <div className="bg-white p-6 shadow-sm border rounded-sm h-[226px]">
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2">
+              <Filter className="h-4 w-4" />
+              Distribuzione per Fonte
+            </h3>
+            {sourceData.length > 0 ? (
+              <div className="h-[120px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={sourceData}
+                    layout="vertical"
+                    margin={{ top: 5, right: 30, left: 10, bottom: 5 }}
+                    onClick={(data) => {
+                      if (data && data.activeLabel) {
+                        setSelectedSource(data.activeLabel === selectedSource ? null : data.activeLabel);
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                    <XAxis type="number" hide />
+                    <YAxis dataKey="name" type="category" tick={{ fontSize: 10 }} width={80} />
+                    <RechartTooltip />
+                    <Bar dataKey="value" barSize={24} radius={[0, 4, 4, 0]} cursor="pointer">
+                      {sourceData.map((entry, index) => (
+                        <BarCell 
+                          key={`cell-${index}`} 
+                          fill={selectedSource === entry.name ? "#1e40af" : "#93c5fd"} 
+                        />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <EmptyState message="Nessun dato per fonte" />
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-2 flex flex-col gap-6 h-[600px] overflow-hidden">
+          {/* 1. & 2. RIMOZIONE TESTO E MANTENIMENTO ICONE: Cosa apprezzano */}
+          <div className="bg-white shadow-sm border rounded-sm flex-1 h-1/2 flex flex-col overflow-hidden relative group">
+            <ThumbsUp className="h-6 w-6 text-green-700 absolute top-4 left-4 z-10 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <div className="flex-1 min-h-0">
+              <CustomWordCloud 
+                words={positiveWords} 
+                onWordClick={(w) => setSelectedWord(w === selectedWord ? null : w)}
+                selectedWord={selectedWord}
+                colorType="green"
+              />
+            </div>
+          </div>
+
+          {/* 1. & 2. RIMOZIONE TESTO E MANTENIMENTO ICONE: Aree di miglioramento */}
+          <div className="bg-white shadow-sm border rounded-sm flex-1 h-1/2 flex flex-col overflow-hidden relative group">
+            <ThumbsDown className="h-6 w-6 text-red-700 absolute top-4 left-4 z-10 opacity-50 group-hover:opacity-100 transition-opacity" />
+            <div className="flex-1 min-h-0">
+              <CustomWordCloud 
+                words={negativeWords} 
+                onWordClick={(w) => setSelectedWord(w === selectedWord ? null : w)}
+                selectedWord={selectedWord}
+                colorType="red"
+              />
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Active Filters UI */}
+      {(selectedSentiment || selectedWord || selectedSource) && (
+        <div className="bg-blue-50 border border-blue-200 p-4 rounded-md">
+          <div className="flex justify-between items-center mb-3">
+            <h4 className="text-sm font-bold text-blue-900">Filtri Attivi</h4>
+            <button onClick={resetFilters} className="text-xs font-bold text-blue-600 hover:underline">Resetta tutto</button>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {selectedSentiment && <span className="flex items-center gap-1 bg-white border border-blue-200 px-3 py-1 rounded-full text-xs text-blue-800">Sentiment: <strong>{selectedSentiment}</strong> <X className="h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => setSelectedSentiment(null)} /></span>}
+            {selectedSource && <span className="flex items-center gap-1 bg-white border border-blue-200 px-3 py-1 rounded-full text-xs text-blue-800">Fonte: <strong>{selectedSource}</strong> <X className="h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => setSelectedSource(null)} /></span>}
+            {selectedWord && <span className="flex items-center gap-1 bg-white border border-blue-200 px-3 py-1 rounded-full text-xs text-blue-800">Parola: <strong>{selectedWord}</strong> <X className="h-3 w-3 cursor-pointer hover:text-red-500" onClick={() => setSelectedWord(null)} /></span>}
+          </div>
+        </div>
+      )}
+
+      {/* Table Section */}
+      <div className="bg-white shadow-sm border rounded-sm overflow-hidden">
+        <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
+          <h3 className="font-bold text-gray-800">Recensioni Filtrate</h3>
+          <span className="text-xs text-gray-500 font-medium">{filteredData.length} risultati</span>
+        </div>
+        <div className="overflow-x-auto max-h-[600px]">
+          <table className="w-full text-left border-collapse">
+            <thead className="sticky top-0 z-10 bg-gray-50">
+              <tr className="text-xs uppercase text-gray-500">
+                <th className="px-6 py-3 border-b">Data</th>
+                <th className="px-6 py-3 border-b">Sito</th>
+                <th className="px-6 py-3 border-b">Rating</th>
+                <th className="px-6 py-3 border-b">Sentiment</th>
+                <th className="px-6 py-3 border-b">Testo</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredData.length > 0 ? filteredData.map((r, i) => (
+                <tr key={i} className="hover:bg-gray-50 text-sm">
+                  <td className="px-6 py-4 border-b whitespace-nowrap">{r.DATA_COMMENTO}</td>
+                  <td className="px-6 py-4 border-b">{r.SITO_ORIGINE}</td>
+                  <td className="px-6 py-4 border-b font-bold">{r.RATING_ORIGINALE} <Star className="inline h-3 w-3 text-yellow-400 fill-current" /></td>
+                  <td className="px-6 py-4 border-b">
+                    <span className={cn(
+                      "px-2 py-1 rounded-full text-xs font-bold",
+                      r.SENTIMENT_SCORE === "Positivo" ? "bg-green-100 text-green-700" :
+                      r.SENTIMENT_SCORE === "Negativo" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
+                    )}>{r.SENTIMENT_SCORE}</span>
+                  </td>
+                  <td className="px-6 py-4 border-b italic text-gray-600">{r.TESTO_COMMENTO}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-500 italic">Nessuna recensione trovata.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default SentimentAnalysis;
+
+
+
+========================================
+FILE: src/components/PriceIntelligence.tsx
+========================================
+"use client";
+
+import React, { useEffect, useState, useMemo, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { AlertTriangle, Info, Camera, X } from "lucide-react";
+import Chart from "./Chart";
+
+interface ProductInfo {
+  ID_PRODOTTO: string;
+  CANTINA: string;
+  NOME_PRODOTTO: string;
+  PREZZO_BASE: number;
+  URL_IMMAGINE: string;
+}
+
+interface PriceHistory {
+  DATA_ESTRAZIONE: string;
+  ID_PRODOTTO: string;
+  CANTINA: string;
+  NOME_PRODOTTO: string;
+  SITO_ORIGINE: string;
+  PREZZO_RILEVATO: number;
+  PREZZO_SCONTATO: number;
+  STOCKOUT: string;
+  SCREENSHOT_PATH?: string;
+  TRIGGER_REASON?: string;
+}
+
+const PriceIntelligence = () => {
+  const searchParams = useSearchParams();
+  const selectedProductId = searchParams.get("id_prodotto") || "";
+  const dataInizio = searchParams.get("data_inizio");
+  const dataFine = searchParams.get("data_fine");
+
+  const [products, setProducts] = useState<ProductInfo[]>([]);
+  const [history, setHistory] = useState<PriceHistory[]>([]);
+  const [loading, setLoading] = useState(true);
+  
+  // States for Zoom
+  const [zoomXDomain, setZoomXDomain] = useState<[string, string] | null>(null);
+
+  // States for Modal Audit
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedAudit, setSelectedAudit] = useState<PriceHistory | null>(null);
+
+  // Reactive stats based on visible chart data
+  const [visibleStats, setVisibleStats] = useState({
+    avgPrice: 0,
+    basePrice: 0,
+    deviance: 0,
+    percSottocosto: 0
+  });
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const prodResponse = await fetch('/api/prodotti');
+        const productsData = await prodResponse.json();
+        const historyResponse = await fetch('/api/storico');
+        const historyData = await historyResponse.json();
+        setProducts(productsData);
+        setHistory(historyData);
+      } catch (error) {
+        console.error("Error loading data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  const productDetails = useMemo(() => 
+    products.find(p => p.ID_PRODOTTO === selectedProductId), 
+  [products, selectedProductId]);
+
+  const filteredHistory = useMemo(() => {
+    let filtered = history.filter(h => h.ID_PRODOTTO === selectedProductId);
+    if (dataInizio) {
+      const start = new Date(dataInizio);
+      filtered = filtered.filter(h => {
+        const [d, m, y] = h.DATA_ESTRAZIONE.split('/');
+        return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)) >= start;
+      });
+    }
+    if (dataFine) {
+      const end = new Date(dataFine);
+      filtered = filtered.filter(h => {
+        const [d, m, y] = h.DATA_ESTRAZIONE.split('/');
+        return new Date(parseInt(y), parseInt(m) - 1, parseInt(d)) <= end;
+      });
+    }
+    return filtered;
+  }, [history, selectedProductId, dataInizio, dataFine]);
+
+  const chartData = useMemo(() => {
+    const months: Record<string, string> = {
+      '01': 'gen', '02': 'feb', '03': 'mar', '04': 'apr', '05': 'mag', '06': 'giu',
+      '07': 'lug', '08': 'ago', '09': 'set', '10': 'ott', '11': 'nov', '12': 'dic'
+    };
+    const uniqueDateStrings = Array.from(new Set(filteredHistory.map(h => h.DATA_ESTRAZIONE)));
+    const sortedDateStrings = uniqueDateStrings.sort((a, b) => {
+      const [da, ma, ya] = a.split('/').map(Number);
+      const [db, mb, yb] = b.split('/').map(Number);
+      return new Date(ya, ma - 1, da).getTime() - new Date(yb, mb - 1, db).getTime();
+    });
+    const marketplaces = Array.from(new Set(filteredHistory.map(h => h.SITO_ORIGINE)));
+    return sortedDateStrings.map(dateStr => {
+      const [d, m] = dateStr.split('/');
+      const formattedDate = `${months[m]} ${d}/${m}`;
+      const entry: any = { date: formattedDate, rawDate: dateStr };
+      marketplaces.forEach(mp => {
+        const found = filteredHistory.find(h => h.DATA_ESTRAZIONE === dateStr && h.SITO_ORIGINE === mp);
+        if (found) {
+          entry[mp] = found.PREZZO_RILEVATO;
+          entry[`${mp}_sconto`] = found.PREZZO_SCONTATO > 0;
+          entry[`${mp}_stockout`] = found.STOCKOUT === "SI";
+        }
+      });
+      return entry;
+    });
+  }, [filteredHistory]);
+
+  const marketplaces = useMemo(() => 
+    Array.from(new Set(filteredHistory.map(h => h.SITO_ORIGINE))),
+  [filteredHistory]);
+
+  useEffect(() => {
+    if (productDetails) {
+      setVisibleStats(prev => ({
+        ...prev,
+        basePrice: productDetails.PREZZO_BASE
+      }));
+    }
+  }, [productDetails]);
+
+  const handleVisibleDataChange = useCallback((visibleData: any[], visibleMarketplaces: string[]) => {
+    if (!productDetails) return;
+
+    // Fallback: se lo zoom non cattura dati, usa i dati totali del prodotto corrente
+    const dataToProcess = (visibleData && visibleData.length > 0) ? visibleData : chartData;
+
+    const basePrice = productDetails.PREZZO_BASE;
+    const allPrices: number[] = [];
+    let belowBaseCount = 0;
+    let totalRilevazioni = 0;
+
+    dataToProcess.forEach(row => {
+      visibleMarketplaces.forEach(mp => {
+        const price = row[mp];
+        if (typeof price === 'number' && price > 0) {
+          allPrices.push(price);
+          totalRilevazioni++;
+          if (price < basePrice) belowBaseCount++;
+        }
+      });
+    });
+
+    const avgPrice = allPrices.length > 0 ? allPrices.reduce((a, b) => a + b, 0) / allPrices.length : 0;
+    const deviance = basePrice > 0 ? (avgPrice / basePrice) - 1 : 0;
+    const percSottocosto = totalRilevazioni > 0 ? (belowBaseCount / totalRilevazioni) * 100 : 0;
+
+    setVisibleStats({
+      avgPrice,
+      basePrice,
+      deviance,
+      percSottocosto
+    });
+  }, [productDetails, chartData]);
+
+  const handleZoom = useCallback((domain: [string, string] | null) => {
+    setZoomXDomain(domain);
+  }, []);
+
+  if (loading) return <div className="p-8 text-center text-gray-500">Caricamento Price Intelligence...</div>;
+  if (!productDetails) return (
+    <div className="p-12 text-center bg-gray-50 border border-dashed rounded-md">
+      <Info className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+      <h3 className="text-lg font-medium text-gray-900">Nessun prodotto selezionato</h3>
+      <p className="text-gray-500 mt-1">Usa la barra di ricerca in alto per selezionare un vino da analizzare.</p>
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center gap-6">
+          <div className="bg-white p-2 border rounded-md shadow-sm">
+            <img 
+              src={productDetails.URL_IMMAGINE || "https://placehold.co/100x200?text=Vino"} 
+              alt={productDetails.NOME_PRODOTTO} 
+              className="h-32 w-auto object-contain"
+            />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{productDetails.NOME_PRODOTTO}</h1>
+            <p className="text-gray-500">{productDetails.CANTINA}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bento-box bg-white p-4 border rounded-sm">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Prezzo Base (MAP)</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">€ {(visibleStats.basePrice ?? 0).toFixed(2)}</p>
+        </div>
+        <div className="bento-box bg-white p-4 border rounded-sm">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Prezzo Medio</p>
+          <p className="text-2xl font-bold text-gray-900 mt-2">€ {(visibleStats.avgPrice ?? 0).toFixed(2)}</p>
+        </div>
+        <div className="bento-box bg-white p-4 border rounded-sm">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Devianza Media</p>
+          <p className={cn(
+            "text-2xl font-bold mt-2",
+            (visibleStats.deviance ?? 0) < 0 ? "text-red-600" : "text-green-600"
+          )}>
+            {((visibleStats.deviance ?? 0) * 100).toFixed(1)}%
+          </p>
+        </div>
+      </div>
+
+      <Chart 
+        data={chartData} 
+        basePrice={productDetails.PREZZO_BASE} 
+        marketplaces={marketplaces} 
+        onVisibleDataChange={handleVisibleDataChange}
+        xDomain={zoomXDomain}
+        onZoom={handleZoom}
+      />
+
+      <div className="flex flex-col lg:flex-row gap-6">
+        <div className="lg:w-1/4">
+          <div className="bento-box bg-white p-8 border rounded-sm h-full flex flex-col items-center justify-center text-center">
+            <p className="text-sm font-bold text-gray-400 uppercase mb-4">% SOTTOCOSTO</p>
+            <div className="relative">
+              <p className="text-5xl font-black text-red-600">{(visibleStats.percSottocosto ?? 0).toFixed(1)}%</p>
+              <div className="absolute -top-2 -right-6">
+                <AlertTriangle className="h-8 w-8 text-red-600 animate-pulse" />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-4 max-w-[150px]">Percentuale di rilevazioni con prezzo inferiore al MAP nel periodo visibile</p>
+          </div>
+        </div>
+
+        <div className="lg:w-3/4">
+          <div className="bg-white shadow-sm border rounded-sm overflow-hidden h-full">
+            <div className="bg-red-50 p-4 border-b border-red-100">
+              <h3 className="font-bold text-red-700 flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5" /> Wall of Shame (Marketplace Sotto MAP)
+              </h3>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="text-[10px] uppercase text-gray-500 bg-gray-50">
+                    <th className="px-6 py-3 border-b">Marketplace</th>
+                    <th className="px-6 py-3 border-b">% Scostamento</th>
+                    <th className="px-6 py-3 border-b">Delta Medio (€)</th>
+                    <th className="px-6 py-3 border-b">GG Sconto</th>
+                    <th className="px-6 py-3 border-b">GG Stockout</th>
+                  </tr>
+                </thead>
+                <tbody className="text-sm">
+                  {(() => {
+                    const mpStats = marketplaces.map(mp => {
+                      const mpData = filteredHistory.filter(h => h.SITO_ORIGINE === mp);
+                      const avgMpPrice = mpData.reduce((a, b) => a + b.PREZZO_RILEVATO, 0) / mpData.length;
+                      const scostamento = (avgMpPrice / (productDetails.PREZZO_BASE ?? 1)) - 1;
+                      const delta = avgMpPrice - (productDetails.PREZZO_BASE ?? 0);
+                      const ggSconto = mpData.filter(h => h.PREZZO_SCONTATO > 0).length;
+                      const ggStockout = mpData.filter(h => h.STOCKOUT === "SI").length;
+                      return { mp, scostamento, delta, ggSconto, ggStockout };
+                    })
+                    .filter(s => s.scostamento < -0.01)
+                    .sort((a, b) => a.scostamento - b.scostamento);
+
+                    if (mpStats.length === 0) return <tr><td colSpan={5} className="px-6 py-8 text-center text-gray-400 italic">Nessun marketplace attualmente sotto il prezzo base.</td></tr>;
+
+                    return mpStats.map(s => (
+                      <tr key={s.mp} className="hover:bg-red-50 transition-colors">
+                        <td className="px-6 py-4 border-b font-medium">{s.mp}</td>
+                        <td className="px-6 py-4 border-b text-red-600 font-bold">{(s.scostamento * 100).toFixed(1)}%</td>
+                        <td className="px-6 py-4 border-b text-red-600 font-bold">€ {(s.delta ?? 0).toFixed(2)}</td>
+                        <td className="px-6 py-4 border-b">{s.ggSconto}</td>
+                        <td className="px-6 py-4 border-b font-bold">{s.ggStockout}</td>
+                      </tr>
+                    ));
+                  })()}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sezione Audit Trail / Dettaglio Rilevazioni */}
+      <div className="bg-white shadow-sm border rounded-sm overflow-hidden">
+        <div className="bg-gray-50 p-4 border-b">
+          <h3 className="font-bold text-gray-700 flex items-center gap-2">
+            <Camera className="h-5 w-5" /> Audit Trail - Dettaglio Rilevazioni
+          </h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="text-[10px] uppercase text-gray-500 bg-gray-50">
+                <th className="px-6 py-3 border-b">Data</th>
+                <th className="px-6 py-3 border-b">Marketplace</th>
+                <th className="px-6 py-3 border-b">Prezzo Rilevato</th>
+                <th className="px-6 py-3 border-b">Motivo / Audit</th>
+              </tr>
+            </thead>
+            <tbody className="text-sm">
+              {filteredHistory.length === 0 ? (
+                <tr><td colSpan={4} className="px-6 py-8 text-center text-gray-400 italic">Nessuna rilevazione trovata per il periodo selezionato.</td></tr>
+              ) : (
+                [...filteredHistory].sort((a, b) => {
+                  const [da, ma, ya] = a.DATA_ESTRAZIONE.split('/').map(Number);
+                  const [db, mb, yb] = b.DATA_ESTRAZIONE.split('/').map(Number);
+                  return new Date(yb, mb - 1, db).getTime() - new Date(ya, ma - 1, da).getTime();
+                }).map((h, i) => (
+                  <tr 
+                    key={i} 
+                    className={cn(
+                      "hover:bg-gray-50 transition-colors",
+                      h.SCREENSHOT_PATH ? "cursor-pointer" : ""
+                    )}
+                    onClick={() => {
+                      if (h.SCREENSHOT_PATH) {
+                        setSelectedAudit(h);
+                        setIsModalOpen(true);
+                      }
+                    }}
+                  >
+                    <td className="px-6 py-4 border-b text-gray-600">{h.DATA_ESTRAZIONE}</td>
+                    <td className="px-6 py-4 border-b font-medium">{h.SITO_ORIGINE}</td>
+                    <td className="px-6 py-4 border-b font-bold">
+                      € {h.PREZZO_RILEVATO.toFixed(2)}
+                      {h.SCREENSHOT_PATH && (
+                        <Camera size={16} className="inline-block ml-2 text-red-500" />
+                      )}
+                    </td>
+                    <td className="px-6 py-4 border-b">
+                      <span className={cn(
+                        "px-2 py-1 rounded-full text-[10px] font-bold uppercase",
+                        h.TRIGGER_REASON === 'SOTTO_PREZZO' ? "bg-red-100 text-red-700" : "bg-green-100 text-green-700"
+                      )}>
+                        {h.TRIGGER_REASON || 'REGOLARE'}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Modal Audit Trail */}
+      {isModalOpen && selectedAudit && (
+        <div 
+          className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4 backdrop-blur-sm"
+          onClick={() => setIsModalOpen(false)}
+        >
+          <div 
+            className="bg-white rounded-lg shadow-2xl max-w-4xl w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start p-6 border-b bg-gray-50">
+              <div className="flex gap-6">
+                <div className="bg-white p-3 rounded-md border shadow-sm flex items-center justify-center">
+                  <Camera className="h-8 w-8 text-red-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-xl text-gray-900">Audit Trail Fotografico</h3>
+                  <div className="flex gap-4 mt-2">
+                    <div className="bg-red-100 px-2 py-1 rounded text-[10px] font-bold text-red-700 uppercase border border-red-200">
+                      {selectedAudit.TRIGGER_REASON || 'SOTTO_PREZZO'}
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                      <span className="font-semibold text-gray-700">€ {selectedAudit.PREZZO_RILEVATO.toFixed(2)}</span> su {selectedAudit.SITO_ORIGINE}
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-1">
+                      il {selectedAudit.DATA_ESTRAZIONE}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsModalOpen(false)}
+                className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+              >
+                <X className="h-6 w-6 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 bg-gray-100">
+              <div className="relative bg-white rounded-md overflow-hidden border shadow-inner p-2">
+                <img 
+                  src={selectedAudit.SCREENSHOT_PATH} 
+                  alt="Audit Trail" 
+                  className="w-full max-h-[70vh] object-contain mx-auto rounded-sm"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = "https://placehold.co/800x600?text=Screenshot+Non+Disponibile";
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default PriceIntelligence;
+
+
+
+========================================
+FILE: src/components/Chart.tsx
+========================================
+"use client";
+
+import React, { useMemo, useState, useEffect, useCallback } from "react";
+import dynamic from "next/dynamic";
+import { Download, RotateCcw } from "lucide-react";
+
+// Importazione dinamica di Plotly per evitare errori SSR
+const Plot = dynamic(() => import("react-plotly.js"), { 
+  ssr: false,
+  loading: () => <div className="h-[400px] flex items-center justify-center bg-gray-50 text-gray-400">Caricamento Grafico...</div>
+});
+
+interface ChartProps {
+  data: any[];
+  basePrice: number;
+  marketplaces: string[];
+  onVisibleDataChange?: (visibleData: any[], visibleMarketplaces: string[]) => void;
+  xDomain: [string, string] | null;
+  onZoom: (domain: [string, string] | null) => void;
+}
+
+const PASTEL_COLORS = [
+  "#FFB3BA", "#BAFFC9", "#BAE1FF", "#FFFFBA", "#FFDFBA", "#E0BBE4",
+  "#D4F0F0", "#FFC8A2", "#F9EBDF", "#D5AAFF", "#85E3FF", "#B2F2BB"
+];
+
+const Chart = ({ data, basePrice, marketplaces, onVisibleDataChange, xDomain, onZoom }: ChartProps) => {
+  console.log('Dati ricevuti nel grafico:', data);
+  console.log('Prezzo base:', basePrice);
+
+  const [visibleMarketplaces, setVisibleMarketplaces] = useState<string[]>(marketplaces);
+  const [currentRange, setCurrentRange] = useState<[string, string] | null>(xDomain);
+
+  // Sincronizza il range locale con la prop xDomain
+  useEffect(() => {
+    setCurrentRange(xDomain);
+  }, [xDomain]);
+
+  // Gestione del filtraggio dati per il componente padre
+  const handleRelayout = useCallback((event: any) => {
+    let newRange: [string, string] | null = null;
+    
+    // Plotly relayout can have different property names for ranges
+    if (event['xaxis.range[0]'] && event['xaxis.range[1]']) {
+      newRange = [event['xaxis.range[0]'], event['xaxis.range[1]']];
+    } else if (event['xaxis.autorange']) {
+      newRange = null;
+    } else if (event['xaxis.range']) {
+      newRange = [event['xaxis.range'][0], event['xaxis.range'][1]];
+    }
+
+    if (JSON.stringify(newRange) !== JSON.stringify(currentRange)) {
+      setCurrentRange(newRange);
+      if (onZoom) onZoom(newRange);
+    }
+  }, [currentRange, onZoom]);
+
+  // Funzione di Reset Completo
+  const handleReset = useCallback(() => {
+    // 1. Reset Zoom (Comunica al padre e resetta localmente)
+    if (onZoom) onZoom(null);
+    setCurrentRange(null);
+    
+    // 2. Ripristina visibilità marketplace
+    setVisibleMarketplaces(marketplaces);
+    
+    // 3. Sincronizza KPI istantaneamente con i dati originali
+    if (onVisibleDataChange) {
+      onVisibleDataChange(data, marketplaces);
+    }
+  }, [data, marketplaces, onZoom, onVisibleDataChange]);
+
+  const handleLegendClick = useCallback((event: any) => {
+    const mp = event.data[event.curveNumber].name;
+    if (mp === 'PREZZO BASE') return false; 
+
+    setVisibleMarketplaces(prev => {
+      const isVisible = prev.includes(mp);
+      const newVisible = isVisible ? prev.filter(m => m !== mp) : [...prev, mp];
+      return newVisible;
+    });
+    
+    return false; // Impedisce a Plotly di gestire la visibilità internamente
+  }, []);
+
+  // Update parent when visible data changes (triggered by currentRange, visibleMarketplaces or data)
+  useEffect(() => {
+    if (onVisibleDataChange && data.length > 0) {
+      let visibleData = data;
+      
+      if (currentRange) {
+        try {
+          const start = new Date(currentRange[0]).getTime();
+          const end = new Date(currentRange[1]).getTime();
+          
+          if (!isNaN(start) && !isNaN(end)) {
+            visibleData = data.filter(d => {
+              const [day, month, year] = d.rawDate.split('/').map(Number);
+              const timestamp = new Date(year, month - 1, day).getTime();
+              return timestamp >= start && timestamp <= end;
+            });
+          }
+        } catch (e) {
+          console.error("Errore nel calcolo del range visibile:", e);
+        }
+      }
+      
+      onVisibleDataChange(visibleData, visibleMarketplaces);
+    }
+  }, [currentRange, visibleMarketplaces, data, onVisibleDataChange]);
+
+  // Generazione Traces per Plotly
+  const traces = useMemo(() => {
+    const marketplaceTraces = marketplaces.map((mp, index) => {
+      const x = data.map(d => {
+        // Usa rawDate (formato DD/MM/YYYY) per creare un oggetto Date preciso
+        const [day, month, year] = d.rawDate.split('/').map(Number);
+        return new Date(year, month - 1, day);
+      });
+      const y = data.map(d => d[mp]);
+
+      // Configurazione marker dinamici
+      const markerSymbols = data.map(d => {
+        const price = d[mp];
+        if (d[`${mp}_stockout`]) return 'circle';
+        if (price < basePrice) return 'diamond';
+        return 'circle';
+      });
+
+      const markerColors = data.map(d => {
+        const price = d[mp];
+        if (d[`${mp}_stockout`]) return 'black';
+        if (price < basePrice) return 'red';
+        return PASTEL_COLORS[index % PASTEL_COLORS.length];
+      });
+
+      const markerLineColors = data.map(d => {
+        if (d[`${mp}_sconto`]) return 'yellow';
+        return 'transparent';
+      });
+
+      const markerLineWidths = data.map(d => {
+        if (d[`${mp}_sconto`]) return 4;
+        return 0;
+      });
+
+      const hoverText = data.map(d => {
+        const price = d[mp];
+        if (price === undefined || price === null || isNaN(price)) return null;
+        return `<b>${mp}</b><br>Prezzo: €${price.toFixed(2)}<br>SCONTO: ${d[`${mp}_sconto`] ? 'SI' : 'NO'}<br>STOCKOUT: ${d[`${mp}_stockout`] ? 'SI' : 'NO'}`;
+      });
+
+      return {
+        x,
+        y,
+        name: mp,
+        type: 'scatter',
+        mode: 'lines+markers',
+        line: { 
+          color: PASTEL_COLORS[index % PASTEL_COLORS.length],
+          width: 3
+        },
+        marker: {
+          symbol: markerSymbols,
+          color: markerColors,
+          size: 10,
+          line: {
+            color: markerLineColors,
+            width: markerLineWidths
+          }
+        },
+        hoverinfo: 'text',
+        text: hoverText,
+        visible: visibleMarketplaces.includes(mp) ? true : 'legendonly'
+      };
+    });
+
+    // Trace per il PREZZO BASE (MAP)
+    const basePriceTrace = {
+      x: data.map(d => {
+        const [day, month, year] = d.rawDate.split('/').map(Number);
+        return new Date(year, month - 1, day);
+      }),
+      y: data.map(() => basePrice),
+      name: 'PREZZO BASE',
+      type: 'scatter',
+      mode: 'lines',
+      line: {
+        color: 'black',
+        width: 3,
+        dash: 'dash'
+      },
+      hoverinfo: 'skip'
+    };
+
+    return [...marketplaceTraces, basePriceTrace];
+  }, [data, marketplaces, visibleMarketplaces, basePrice]);
+
+  // Calcolo Scala Asse Y Dinamica
+  const yAxisRange = useMemo(() => {
+    const allPrices: number[] = [];
+    data.forEach(row => {
+      marketplaces.forEach(mp => {
+        const val = row[mp];
+        if (typeof val === 'number' && isFinite(val)) {
+          allPrices.push(val);
+        }
+      });
+    });
+
+    const actualMin = allPrices.length > 0 ? Math.min(...allPrices) : basePrice;
+    const actualMax = allPrices.length > 0 ? Math.max(...allPrices) : basePrice;
+
+    const safeMin = basePrice - 10;
+    const safeMax = basePrice + 10;
+
+    return [
+      Math.max(0, Math.min(actualMin, safeMin) - 5),
+      Math.max(actualMax, safeMax) + 5
+    ];
+  }, [data, marketplaces, basePrice]);
+
+  const handleDownloadCSV = () => {
+    if (data.length === 0) return;
+    const headers = ["Data", ...marketplaces];
+    const csvRows = [
+      headers.join(";"),
+      ...data.map(row => [row.date, ...marketplaces.map(mp => row[mp] || "")].join(";"))
+    ];
+    const blob = new Blob([csvRows.join("\n")], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `export_prezzi_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  return (
+    <div className="bg-white p-6 shadow-sm border rounded-sm">
+      <div className="flex justify-between items-center mb-6">
+        <h3 className="text-lg font-bold">Andamento Prezzi per Marketplace</h3>
+        <div className="flex gap-2">
+          <button 
+            onClick={handleReset} 
+            className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-blue-600 border px-2 py-1 rounded"
+          >
+            <RotateCcw className="h-3.5 w-3.5" /> Reset Grafico
+          </button>
+          <button onClick={handleDownloadCSV} className="flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-green-600 border px-2 py-1 rounded">
+            <Download className="h-3.5 w-3.5" /> Scarica CSV
+          </button>
+        </div>
+      </div>
+
+      <div className="h-[500px] w-full">
+        {/* @ts-ignore */}
+        <Plot
+          data={traces as any}
+          layout={{
+            autosize: true,
+            height: 500,
+            margin: { l: 50, r: 30, t: 20, b: 80 },
+            hovermode: 'closest',
+            dragmode: 'zoom',
+            xaxis: {
+              type: 'date',
+              tickformat: '%b %d/%m',
+              rangeslider: { 
+                visible: true,
+                borderwidth: 1,
+                bordercolor: '#cbd5e1',
+                bgcolor: '#f8fafc'
+              },
+              tickfont: {
+                size: 10,
+                color: 'black' 
+              },
+              range: currentRange ? [new Date(currentRange[0]), new Date(currentRange[1])] : undefined
+            },
+            yaxis: {
+              range: yAxisRange,
+              tickprefix: '€',
+              gridcolor: '#f0f0f0',
+              zeroline: false
+            },
+            showlegend: true,
+            legend: {
+              orientation: 'h',
+              y: -0.5,
+              x: 0.5,
+              xanchor: 'center'
+            },
+            plot_bgcolor: 'white',
+            paper_bgcolor: 'white'
+          }}
+          config={{
+            displayModeBar: true,
+            responsive: true,
+            displaylogo: false,
+            modeBarButtonsToRemove: ['select2d', 'lasso2d']
+          }}
+          onRelayout={handleRelayout}
+          onLegendClick={handleLegendClick}
+          className="w-full h-full"
+        />
+      </div>
+    </div>
+  );
+};
+
+export default Chart;
+
+
+
+========================================
 FILE: src/actions/data-actions.ts
 ========================================
 "use server";
@@ -201,7 +1703,40 @@ import { promises as fs } from "fs";
 import path from "path";
 import Papa from "papaparse";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
+
+export async function getWineries() {
+  const session = await getServerSession(authOptions);
+  
+  if (!session || !session.user) {
+    throw new Error("Non autorizzato");
+  }
+
+  const ruoloUtente = (session.user as any).ruolo;
+  const cantinaVisibile = (session.user as any).cantinaVisibile;
+  const isAdmin = ruoloUtente === 'ADMIN' || session.user.email === "admin@antigravity.it";
+
+  if (!isAdmin && cantinaVisibile !== 'ALL') {
+    return [cantinaVisibile];
+  }
+
+  const filePath = path.join(process.cwd(), "public", "data", "database_vini.csv");
+  try {
+    const fileContent = await fs.readFile(filePath, "utf8");
+    const parsed = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ";",
+    });
+
+    const allData = parsed.data as any[];
+    const wineries = [...new Set(allData.map((row: any) => row.CANTINA).filter(Boolean))];
+    return wineries.sort();
+  } catch (error) {
+    console.error(`Errore nella lettura delle cantine:`, error);
+    return [];
+  }
+}
 
 export async function getSecureData(fileName: string) {
   const session = await getServerSession(authOptions);
@@ -251,6 +1786,74 @@ import { twMerge } from "tailwind-merge";
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+
+========================================
+FILE: src/lib/auth.ts
+========================================
+import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { prisma } from "./prisma";
+import EmailProvider from "next-auth/providers/email";
+import { promises as fs } from "fs";
+import path from "path";
+import Papa from "papaparse";
+import { NextAuthOptions } from "next-auth";
+
+export const authOptions: NextAuthOptions = {
+  adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET,
+  session: {
+    strategy: "jwt",
+  },
+  providers: [
+    EmailProvider({
+      server: {
+        host: "localhost",
+        port: 25,
+        auth: { user: "", pass: "" }
+      },
+      from: "noreply@antigravity.it",
+      async sendVerificationRequest({ identifier: email, url }) {
+        console.log("\n--- 🔐 MAGIC LINK DI ACCESSO ---");
+        console.log(`COPIA QUESTO URL: ${url}`);
+        console.log("--------------------------------\n");
+      },
+    }),
+  ],
+  callbacks: {
+    async signIn({ user }: { user: { email?: string | null } }) {
+      if (!user.email) return false;
+      const filePath = path.join(process.cwd(), "utenti.csv");
+      const fileContent = await fs.readFile(filePath, "utf8");
+      const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
+      const utenti = parsed.data as any[];
+      return !!utenti.find((u) => u.EMAIL.toLowerCase() === user.email?.toLowerCase());
+    },
+    async jwt({ token, user }: any) {
+      if (user) {
+        const filePath = path.join(process.cwd(), "utenti.csv");
+        const fileContent = await fs.readFile(filePath, "utf8");
+        const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
+        const utenteDati = (parsed.data as any[]).find(u => u.EMAIL.toLowerCase() === user.email.toLowerCase());
+        if (utenteDati) {
+          token.ruolo = utenteDati.RUOLO;
+          token.nome = utenteDati.NOME;
+          token.cantinaVisibile = utenteDati.CANTINA_VISIBILE;
+        }
+      }
+      return token;
+    },
+    async session({ session, token }: any) {
+      if (session.user) {
+        (session.user as any).ruolo = token.ruolo;
+        (session.user as any).nome = token.nome;
+        (session.user as any).cantinaVisibile = token.cantinaVisibile;
+      }
+      return session;
+    }
+  },
+};
+
 
 
 ========================================
@@ -304,15 +1907,7 @@ export default withAuth({
 });
 
 export const config = {
-  matcher: [
-    /*
-     * Protegge tutte le pagine tranne:
-     * 1. api/auth (necessario per il login)
-     * 2. _next/static e _next/image (file di sistema)
-     * 3. favicon.ico
-     */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico).*)",
-  ],
+  matcher: ["/((?!api/auth|_next/static|_next/image|favicon.ico).*)"],
 };
 
 
@@ -322,8 +1917,7 @@ FILE: src/app/layout.tsx
 import type { Metadata } from "next";
 import React from "react";
 import "./globals.css";
-import Sidebar from "@/components/layout/Sidebar";
-import TopBar from "@/components/layout/TopBar";
+import ClientLayout from "@/components/layout/ClientLayout";
 import { NextAuthProvider } from "@/components/providers/NextAuthProvider";
 
 export const metadata: Metadata = {
@@ -338,15 +1932,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className="antialiased flex h-screen overflow-hidden" suppressHydrationWarning>
+      <body className="antialiased" suppressHydrationWarning>
         <NextAuthProvider>
-          <Sidebar />
-          <div className="flex-1 flex flex-col overflow-hidden">
-            <TopBar />
-            <main className="flex-1 overflow-y-auto p-6">
-              {children}
-            </main>
-          </div>
+          <ClientLayout>
+            {children}
+          </ClientLayout>
         </NextAuthProvider>
       </body>
     </html>
@@ -355,74 +1945,191 @@ export default function RootLayout({
 
 
 ========================================
-FILE: src/app/api/auth/[...nextauth]/route.ts
+FILE: src/app/api/prodotti/route.ts
 ========================================
-import NextAuth from "next-auth";
-import EmailProvider from "next-auth/providers/email";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
-import { prisma } from "../../../../lib/prisma";
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { promises as fs } from "fs";
 import path from "path";
 import Papa from "papaparse";
 
-export const authOptions = {
-  adapter: PrismaAdapter(prisma),
-  secret: process.env.NEXTAUTH_SECRET,
-  trustHost: true,
-  session: {
-    strategy: "jwt" as const,
-  },
-  providers: [
-    EmailProvider({
-      server: {
-        host: "localhost",
-        port: 25,
-        auth: { user: "", pass: "" }
-      },
-      from: "noreply@antigravity.it",
-      async sendVerificationRequest({ identifier: email, url }) {
-        console.log("\n--- 🔐 MAGIC LINK DI ACCESSO ---");
-        console.log(`COPIA QUESTO URL: ${url}`);
-        console.log("--------------------------------\n");
-      },
-    }),
-  ],
-  callbacks: {
-    async signIn({ user }: { user: { email?: string | null } }) {
-      if (!user.email) return false;
-      const filePath = path.join(process.cwd(), "utenti.csv");
-      const fileContent = await fs.readFile(filePath, "utf8");
-      const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
-      const utenti = parsed.data as any[];
-      return !!utenti.find((u) => u.EMAIL.toLowerCase() === user.email?.toLowerCase());
-    },
-    async jwt({ token, user }: any) {
-      if (user) {
-        const filePath = path.join(process.cwd(), "utenti.csv");
-        const fileContent = await fs.readFile(filePath, "utf8");
-        const parsed = Papa.parse(fileContent, { header: true, skipEmptyLines: true, delimiter: ";" });
-        const utenteDati = (parsed.data as any[]).find(u => u.EMAIL.toLowerCase() === user.email.toLowerCase());
-        if (utenteDati) {
-          token.ruolo = utenteDati.RUOLO;
-          token.nome = utenteDati.NOME;
-          token.cantinaVisibile = utenteDati.CANTINA_VISIBILE; // <-- AGGIUNTO
-        }
-      }
-      return token;
-    },
-    async session({ session, token }: any) {
-      if (session.user) {
-        session.user.ruolo = token.ruolo;
-        session.user.nome = token.nome;
-        (session.user as any).cantinaVisibile = token.cantinaVisibile; // <-- AGGIUNTO
-      }
-      return session;
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
     }
-  },
-};
+
+    const user = session.user as any;
+    const role = user.ruolo;
+    const cantinaVisibile = user.cantinaVisibile;
+
+    const filePath = path.join(process.cwd(), "database_vini.csv");
+    const fileContent = await fs.readFile(filePath, "utf8");
+
+    const parsed = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ";",
+    });
+
+    let prodotti = parsed.data as any[];
+
+    // Rimuovi duplicati basati su ID_PRODOTTO (il CSV sembra avere righe multiple per lo stesso prodotto ma siti diversi)
+    // Se l'obiettivo è avere una lista di prodotti UNICI per il filtro
+    const prodottiUnici = Array.from(new Map(prodotti.map(p => [p.ID_PRODOTTO, {
+      ID_PRODOTTO: p.ID_PRODOTTO,
+      NOME_PRODOTTO: p.NOME_PRODOTTO,
+      CANTINA: p.CANTINA,
+      URL_IMMAGINE: p.URL_IMMAGINE,
+      PREZZO_BASE: parseFloat(p.PREZZO_BASE?.toString().replace(',', '.') || "0")
+    }])).values());
+
+    if (role !== "ADMIN") {
+      prodotti = prodottiUnici.filter((p) => p.CANTINA === cantinaVisibile);
+    } else {
+      prodotti = prodottiUnici;
+    }
+
+    return NextResponse.json(prodotti);
+  } catch (error) {
+    console.error("Errore nel recupero prodotti:", error);
+    return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
+  }
+}
+
+
+
+========================================
+FILE: src/app/api/sentiment/route.ts
+========================================
+import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import fs from "fs";
+import path from "path";
+import Papa from "papaparse";
+
+export async function GET(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session) {
+      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
+    }
+
+    const user = session.user as any;
+    const role = user.ruolo;
+    const cantinaVisibile = user.cantinaVisibile;
+    const isAdmin = role === 'ADMIN' || session.user?.email === "admin@antigravity.it";
+
+    const { searchParams } = new URL(req.url);
+    const idProdotto = searchParams.get("id_prodotto");
+
+    // Lettura Sentiment
+    const sentimentPath = path.join(process.cwd(), "public", "data", "sentiment_vini_elaborato.csv");
+    const sentimentContent = fs.readFileSync(sentimentPath, "utf8");
+    const sentimentResult = Papa.parse(sentimentContent, { 
+      header: true, 
+      skipEmptyLines: true, 
+      delimiter: ';' 
+    });
+    
+    let reviews = sentimentResult.data as any[];
+
+    // Sicurezza: Filtro per Cantina
+    if (!isAdmin && cantinaVisibile !== 'ALL') {
+      reviews = reviews.filter((r: any) => r.CANTINA === cantinaVisibile);
+    }
+
+    // Filtro per ID_PRODOTTO
+    const filteredReviews = idProdotto && idProdotto !== "all"
+      ? reviews.filter((r: any) => 
+          String(r.ID_PRODOTTO).trim() === String(idProdotto).trim()
+        )
+      : reviews;
+
+    // Lettura Prodotti (per i metadati nel client)
+    const productsPath = path.join(process.cwd(), "public", "data", "database_vini.csv");
+    const productsContent = fs.readFileSync(productsPath, "utf8");
+    const productsResult = Papa.parse(productsContent, { 
+      header: true, 
+      skipEmptyLines: true, 
+      delimiter: ';' 
+    });
+    
+    let products = productsResult.data as any[];
+    if (!isAdmin && cantinaVisibile !== 'ALL') {
+      products = products.filter((p: any) => p.CANTINA === cantinaVisibile);
+    }
+
+    return NextResponse.json({
+      reviews: filteredReviews,
+      products: products
+    });
+  } catch (error: any) {
+    console.error("Sentiment API Error:", error);
+    return NextResponse.json(
+      { error: error.message || "Errore nel recupero dati sentiment" },
+      { status: 500 }
+    );
+  }
+}
+
+
+
+========================================
+FILE: src/app/api/auth/[...nextauth]/route.ts
+========================================
+import NextAuth from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 const handler = NextAuth(authOptions);
 export { handler as GET, handler as POST };
+
+
+
+========================================
+FILE: src/app/api/storico/route.ts
+========================================
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { promises as fs } from "fs";
+import path from "path";
+import Papa from "papaparse";
+
+export async function GET() {
+  try {
+    const session = await getServerSession(authOptions);
+
+    if (!session) {
+      return NextResponse.json({ error: "Non autorizzato" }, { status: 401 });
+    }
+
+    const filePath = path.join(process.cwd(), "storico_prezzi.csv");
+    const fileContent = await fs.readFile(filePath, "utf8");
+
+    const parsed = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ";",
+      dynamicTyping: true,
+    });
+
+    const sanitizedData = parsed.data.map((row: any) => ({
+      ...row,
+      PREZZO_RILEVATO: parseFloat(row.PREZZO_RILEVATO?.toString().replace(',', '.') || "0"),
+      PREZZO_SCONTATO: parseFloat(row.PREZZO_SCONTATO?.toString().replace(',', '.') || "0"),
+    }));
+
+    return NextResponse.json(sanitizedData);
+  } catch (error) {
+    console.error("Errore nel recupero storico prezzi:", error);
+    return NextResponse.json({ error: "Errore interno del server" }, { status: 500 });
+  }
+}
 
 
 
@@ -431,328 +2138,18 @@ FILE: src/app/sentiment-analysis/page.tsx
 ========================================
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { getSecureData } from "@/actions/data-actions";
-import { 
-  PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend
-} from "recharts";
-import { MessageSquare, Star, ThumbsUp, X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Suspense } from "react";
+import SentimentAnalysis from "@/components/SentimentAnalysis";
 
-interface Review {
-  DATA_COMMENTO: string;
-  ID_PRODOTTO: string;
-  NOME_PRODOTTO: string;
-  SITO_ORIGINE: string;
-  RATING_ORIGINALE: number;
-  TESTO_COMMENTO: string;
-  SENTIMENT_SCORE: string;
-  PAROLE_CHIAVE_ESTRATTE: string;
-}
-
-interface ProductInfo {
-  ID_PRODOTTO: string;
-  CANTINA: string;
-  VINO: string;
-}
-
-const SentimentAnalysis = () => {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [products, setProducts] = useState<ProductInfo[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>("all");
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [reviewsData, productsData] = await Promise.all([
-          getSecureData("sentiment_vini_elaborato.csv") as Promise<Review[]>,
-          getSecureData("database_vini.csv") as Promise<ProductInfo[]>
-        ]);
-
-        setReviews(reviewsData);
-        
-        // Filter unique products
-        const uniqueProductsMap = new Map<string, ProductInfo>();
-        productsData.forEach(p => {
-          if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
-            uniqueProductsMap.set(p.ID_PRODOTTO, p);
-          }
-        });
-        setProducts(Array.from(uniqueProductsMap.values()));
-      } catch (error) {
-        console.error("Error loading sentiment data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, []);
-
-  const productOptions = useMemo(() => {
-    const uniqueReviewProductIds = Array.from(new Set(reviews.map(r => r.ID_PRODOTTO)));
-    return uniqueReviewProductIds.map(id => {
-      const product = products.find(p => p.ID_PRODOTTO === id);
-      return {
-        id,
-        label: product ? `${product.CANTINA} - ${product.VINO}` : id
-      };
-    }).sort((a, b) => a.label.localeCompare(b.label));
-  }, [reviews, products]);
-
-  const filteredReviews = useMemo(() => {
-    let filtered = selectedProductId === "all" 
-      ? reviews 
-      : reviews.filter(r => r.ID_PRODOTTO === selectedProductId);
-    
-    if (selectedWord) {
-      filtered = filtered.filter(r => 
-        r.TESTO_COMMENTO.toLowerCase().includes(selectedWord.toLowerCase()) ||
-        (r.PAROLE_CHIAVE_ESTRATTE && r.PAROLE_CHIAVE_ESTRATTE.toLowerCase().includes(selectedWord.toLowerCase()))
-      );
-    }
-    return filtered;
-  }, [reviews, selectedProductId, selectedWord]);
-
-  const stats = useMemo(() => {
-    if (filteredReviews.length === 0) return null;
-    
-    const avgRating = filteredReviews.reduce((a, b) => a + Number(b.RATING_ORIGINALE || 0), 0) / filteredReviews.length;
-    const positiveCount = filteredReviews.filter(r => r.SENTIMENT_SCORE === "Positivo").length;
-    const sentimentScore = (positiveCount / filteredReviews.length) * 100;
-    
-    return {
-      avgRating,
-      sentimentScore,
-      total: filteredReviews.length
-    };
-  }, [filteredReviews]);
-
-  const pieData = useMemo(() => {
-    const counts = {
-      Positivo: filteredReviews.filter(r => r.SENTIMENT_SCORE === "Positivo").length,
-      Neutro: filteredReviews.filter(r => r.SENTIMENT_SCORE === "Neutro").length,
-      Negativo: filteredReviews.filter(r => r.SENTIMENT_SCORE === "Negativo").length,
-    };
-    return [
-      { name: "Positivo", value: counts.Positivo, color: "#22c55e" },
-      { name: "Neutro", value: counts.Neutro, color: "#e5e7eb" },
-      { name: "Negativo", value: counts.Negativo, color: "#ef4444" },
-    ];
-  }, [filteredReviews]);
-
-  const wordCloudData = useMemo(() => {
-    const extractWords = (sentiment: string) => {
-      const counts: Record<string, number> = {};
-      reviews
-        .filter(r => (selectedProductId === "all" || r.ID_PRODOTTO === selectedProductId) && r.SENTIMENT_SCORE === sentiment)
-        .forEach(r => {
-          const words = (r.PAROLE_CHIAVE_ESTRATTE || "").split(",").map(w => w.trim().toLowerCase());
-          words.forEach(w => {
-            if (w && w.length > 3) {
-              counts[w] = (counts[w] || 0) + 1;
-            }
-          });
-        });
-      return Object.entries(counts)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 15);
-    };
-
-    return {
-      positive: extractWords("Positivo"),
-      negative: extractWords("Negativo")
-    };
-  }, [reviews, selectedProductId]);
-
-  if (loading) return <div className="p-8">Caricamento sentiment...</div>;
-
+export default function SentimentAnalysisPage() {
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Sentiment Analysis</h1>
-        <select 
-          className="p-2 border rounded-md shadow-sm"
-          value={selectedProductId}
-          onChange={(e) => {
-            setSelectedProductId(e.target.value);
-            setSelectedWord(null);
-          }}
-        >
-          <option value="all">Tutti i Prodotti</option>
-          {productOptions.map(p => (
-            <option key={p.id} value={p.id}>{p.label}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">Rating Medio</p>
-          <div className="flex items-center gap-2 mt-2">
-            <p className="text-3xl font-bold text-gray-900">{stats?.avgRating.toFixed(1)}</p>
-            <Star className="h-6 w-6 text-yellow-400 fill-current" />
-          </div>
-        </div>
-
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">Sentiment Score</p>
-          <p className="text-3xl font-bold text-green-600 mt-2">{stats?.sentimentScore.toFixed(1)}%</p>
-        </div>
-
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">Totale Recensioni</p>
-          <p className="text-3xl font-bold text-blue-900 mt-2">{stats?.total}</p>
-        </div>
-      </div>
-
-      {/* Middle Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Donut Chart */}
-        <div className="bg-white p-6 shadow-sm border rounded-sm h-[400px]">
-          <h3 className="text-lg font-bold mb-4">Share of Sentiment</h3>
-          <ResponsiveContainer width="100%" height="90%">
-            <PieChart>
-              <Pie
-                data={pieData}
-                innerRadius={80}
-                outerRadius={120}
-                paddingAngle={5}
-                dataKey="value"
-                onClick={(data) => console.log("Filtered by", data.name)}
-              >
-                {pieData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <RechartTooltip />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Word Clouds */}
-        <div className="bg-white p-6 shadow-sm border rounded-sm">
-          <h3 className="text-lg font-bold mb-6">Analisi Parole Chiave</h3>
-          
-          <div className="space-y-8">
-            <div>
-              <p className="text-xs font-bold text-green-600 uppercase mb-3">Positive</p>
-              <div className="flex flex-wrap gap-2">
-                {wordCloudData.positive.map(([word, count]) => (
-                  <button
-                    key={word}
-                    onClick={() => setSelectedWord(word === selectedWord ? null : word)}
-                    className={cn(
-                      "px-3 py-1 rounded-full border transition-all",
-                      selectedWord === word 
-                        ? "bg-green-600 text-white border-green-700" 
-                        : "bg-green-50 text-green-700 border-green-200 hover:border-green-400"
-                    )}
-                    style={{ fontSize: `${Math.min(1 + count * 0.1, 1.5)}rem` }}
-                  >
-                    {word}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-bold text-red-600 uppercase mb-3">Negative</p>
-              <div className="flex flex-wrap gap-2">
-                {wordCloudData.negative.map(([word, count]) => (
-                  <button
-                    key={word}
-                    onClick={() => setSelectedWord(word === selectedWord ? null : word)}
-                    className={cn(
-                      "px-3 py-1 rounded-full border transition-all",
-                      selectedWord === word 
-                        ? "bg-red-600 text-white border-red-700" 
-                        : "bg-red-50 text-red-700 border-red-200 hover:border-red-400"
-                    )}
-                    style={{ fontSize: `${Math.min(1 + count * 0.1, 1.5)}rem` }}
-                  >
-                    {word}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Selected Word Filter Header */}
-      {selectedWord && (
-        <div className="bg-blue-50 border border-blue-200 p-4 rounded-md flex justify-between items-center">
-          <p className="text-blue-800 font-medium">
-            Filtrando recensioni che contengono: <span className="font-bold underline">{selectedWord}</span>
-          </p>
-          <button 
-            onClick={() => setSelectedWord(null)}
-            className="text-blue-800 hover:bg-blue-100 p-1 rounded-md"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-      )}
-
-      {/* Bottom Section: Table */}
-      <div className="bg-white shadow-sm border rounded-sm overflow-hidden">
-        <div className="bg-gray-50 p-4 border-b flex justify-between items-center">
-          <h3 className="font-bold text-gray-800 flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Ultime Recensioni
-          </h3>
-          <span className="text-xs text-gray-500 font-medium">{filteredReviews.length} risultati</span>
-        </div>
-        <div className="overflow-x-auto max-h-[600px]">
-          <table className="w-full text-left border-collapse">
-            <thead className="sticky top-0 z-10">
-              <tr className="text-xs uppercase text-gray-500 bg-gray-50">
-                <th className="px-6 py-3 border-b">Data</th>
-                <th className="px-6 py-3 border-b">Sito</th>
-                <th className="px-6 py-3 border-b">Rating</th>
-                <th className="px-6 py-3 border-b">Sentiment</th>
-                <th className="px-6 py-3 border-b">Testo</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredReviews.map((r, i) => (
-                <tr key={i} className="hover:bg-gray-50 transition-colors text-sm">
-                  <td className="px-6 py-4 border-b whitespace-nowrap">{r.DATA_COMMENTO}</td>
-                  <td className="px-6 py-4 border-b">{r.SITO_ORIGINE}</td>
-                  <td className="px-6 py-4 border-b">
-                    <div className="flex items-center gap-1">
-                      <span className="font-bold">{r.RATING_ORIGINALE}</span>
-                      <Star className="h-3 w-3 text-yellow-400 fill-current" />
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 border-b">
-                    <span className={cn(
-                      "px-2 py-1 rounded-full text-xs font-bold",
-                      r.SENTIMENT_SCORE === "Positivo" ? "bg-green-100 text-green-700" :
-                      r.SENTIMENT_SCORE === "Negativo" ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"
-                    )}>
-                      {r.SENTIMENT_SCORE}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 border-b italic text-gray-600 line-clamp-2 hover:line-clamp-none cursor-pointer">
-                    {r.TESTO_COMMENTO}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div className="container mx-auto py-8 px-4">
+      <Suspense fallback={<div>Caricamento...</div>}>
+        <SentimentAnalysis />
+      </Suspense>
     </div>
   );
-};
-
-
-export default SentimentAnalysis;
+}
 
 
 
@@ -761,298 +2158,15 @@ FILE: src/app/price-intelligence/page.tsx
 ========================================
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { getSecureData } from "@/actions/data-actions";
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, ReferenceLine, Dot
-} from "recharts";
-import { cn } from "@/lib/utils";
-import { AlertTriangle, TrendingDown, TrendingUp, DollarSign, Info } from "lucide-react";
+import PriceIntelligence from "@/components/PriceIntelligence";
 
-interface ProductInfo {
-  ID_PRODOTTO: string;
-  CANTINA: string;
-  VINO: string;
-  PREZZO_BASE: number;
-  IMM_URL: string;
-}
-
-interface PriceHistory {
-  DATA_ESTRAZIONE: string;
-  ID_PRODOTTO: string;
-  CANTINA: string;
-  NOME_PRODOTTO: string;
-  SITO_ORIGINE: string;
-  PREZZO_RILEVATO: number;
-  PREZZO_SCONTATO: number;
-  STOCKOUT: string;
-}
-
-const PriceIntelligence = () => {
-  const [products, setProducts] = useState<ProductInfo[]>([]);
-  const [history, setHistory] = useState<PriceHistory[]>([]);
-  const [selectedProductId, setSelectedProductId] = useState<string>("");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const productsData = await getSecureData("database_vini.csv") as ProductInfo[];
-        const historyData = await getSecureData("storico_prezzi.csv") as PriceHistory[];
-        
-        // Filter unique products based on ID_PRODOTTO
-        const uniqueProductsMap = new Map<string, ProductInfo>();
-        productsData.forEach(p => {
-          if (!uniqueProductsMap.has(p.ID_PRODOTTO)) {
-            uniqueProductsMap.set(p.ID_PRODOTTO, p);
-          }
-        });
-        const uniqueProducts = Array.from(uniqueProductsMap.values());
-
-        setProducts(uniqueProducts);
-        setHistory(historyData);
-        if (uniqueProducts.length > 0) {
-          setSelectedProductId(uniqueProducts[0].ID_PRODOTTO);
-        }
-      } catch (error) {
-        console.error("Error loading CSV data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, []);
-
-  const productDetails = useMemo(() => 
-    products.find(p => p.ID_PRODOTTO === selectedProductId), 
-  [products, selectedProductId]);
-
-  const filteredHistory = useMemo(() => 
-    history.filter(h => h.ID_PRODOTTO === selectedProductId),
-  [history, selectedProductId]);
-
-  // KPI Calculations
-  const stats = useMemo(() => {
-    if (!productDetails || filteredHistory.length === 0) return null;
-
-    const validPrices = filteredHistory
-      .map(h => h.PREZZO_RILEVATO)
-      .filter(p => p > 0);
-    
-    const avgPrice = validPrices.length > 0 
-      ? validPrices.reduce((a, b) => a + b, 0) / validPrices.length 
-      : 0;
-    
-    const basePrice = productDetails.PREZZO_BASE;
-    const deviance = basePrice > 0 ? (avgPrice / basePrice) - 1 : 0;
-    
-    const belowBase = filteredHistory.filter(h => h.PREZZO_RILEVATO > 0 && h.PREZZO_RILEVATO < basePrice);
-    const percSottocosto = filteredHistory.length > 0 ? (belowBase.length / filteredHistory.length) * 100 : 0;
-
-    return {
-      avgPrice,
-      basePrice,
-      deviance,
-      percSottocosto
-    };
-  }, [productDetails, filteredHistory]);
-
-  // Chart Data Preparation
-  const chartData = useMemo(() => {
-    const dates = Array.from(new Set(filteredHistory.map(h => h.DATA_ESTRAZIONE.split(' ')[0]))).sort();
-    const marketplaces = Array.from(new Set(filteredHistory.map(h => h.SITO_ORIGINE)));
-
-    return dates.map(date => {
-      const entry: any = { date };
-      marketplaces.forEach(mp => {
-        const found = filteredHistory.find(h => h.DATA_ESTRAZIONE.startsWith(date) && h.SITO_ORIGINE === mp);
-        if (found) {
-          entry[mp] = found.PREZZO_RILEVATO;
-          entry[`${mp}_sconto`] = found.PREZZO_SCONTATO;
-          entry[`${mp}_stockout`] = found.STOCKOUT === "SI";
-          entry[`${mp}_raw`] = found;
-        }
-      });
-      return entry;
-    });
-  }, [filteredHistory]);
-
-  const colors = ["#8884d8", "#82ca9d", "#ffc658", "#ff8042", "#0088fe", "#00c49f"];
-
-  if (loading) return <div className="p-8">Caricamento dati...</div>;
-  
+export default function PriceIntelligencePage() {
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Price Intelligence</h1>
-        <select 
-          className="p-2 border rounded-md shadow-sm"
-          value={selectedProductId}
-          onChange={(e) => setSelectedProductId(e.target.value)}
-        >
-          {products.map(p => (
-            <option key={p.ID_PRODOTTO} value={p.ID_PRODOTTO}>{p.CANTINA} - {p.VINO}</option>
-          ))}
-        </select>
-      </div>
-
-      {/* KPI Section */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bento-box flex flex-col items-center justify-center">
-          <img 
-            src={productDetails?.IMM_URL || "https://placehold.co/100x200?text=Vino"} 
-            alt="Bottiglia" 
-            className="h-24 object-contain"
-          />
-        </div>
-        
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">Prezzo Base (MAP)</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2">€ {stats?.basePrice.toFixed(2)}</p>
-        </div>
-
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">Prezzo Medio</p>
-          <p className="text-2xl font-bold text-gray-900 mt-2">€ {stats?.avgPrice.toFixed(2)}</p>
-        </div>
-
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">Devianza %</p>
-          <p className={cn(
-            "text-2xl font-bold mt-2",
-            (stats?.deviance ?? 0) < 0 ? "text-red-600" : "text-green-600"
-          )}>
-            {((stats?.deviance ?? 0) * 100).toFixed(1)}%
-          </p>
-        </div>
-
-        <div className="bento-box">
-          <p className="text-xs font-semibold text-gray-400 uppercase">% Sottocosto</p>
-          <p className="text-2xl font-bold text-red-600 mt-2">{(stats?.percSottocosto ?? 0).toFixed(1)}%</p>
-        </div>
-      </div>
-
-      {/* Main Chart */}
-      <div className="bg-white p-6 shadow-sm border rounded-sm h-[450px]">
-        <h3 className="text-lg font-bold mb-4">Andamento Prezzi per Marketplace</h3>
-        <ResponsiveContainer width="100%" height="90%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} />
-            <XAxis dataKey="date" />
-            <YAxis domain={['auto', 'auto']} />
-            <Tooltip 
-              content={({ active, payload }) => {
-                if (active && payload && payload.length) {
-                  const data = payload[0].payload;
-                  const mp = payload[0].name;
-                  return (
-                    <div className="bg-white p-3 border shadow-md rounded-md">
-                      <p className="font-bold border-b mb-2 pb-1">{mp}</p>
-                      <p className="text-sm">Prezzo: <span className="font-bold">€ {payload[0].value}</span></p>
-                      {data[`${mp}_sconto`] && (
-                        <p className="text-sm text-yellow-600 font-medium">Scontato: € {data[`${mp}_sconto`]}</p>
-                      )}
-                      {data[`${mp}_stockout`] && (
-                        <p className="text-sm text-black font-bold">STOCKOUT</p>
-                      )}
-                    </div>
-                  );
-                }
-                return null;
-              }}
-            />
-            <Legend />
-            <ReferenceLine 
-              y={stats?.basePrice} 
-              stroke="black" 
-              strokeWidth={2} 
-              strokeDasharray="5 5" 
-              label={{ position: 'right', value: 'MAP', fill: 'black', fontSize: 12 }} 
-            />
-            {Array.from(new Set(filteredHistory.map(h => h.SITO_ORIGINE))).map((mp, index) => (
-              <Line
-                key={mp}
-                type="monotone"
-                dataKey={mp}
-                stroke={colors[index % colors.length]}
-                strokeWidth={2}
-                dot={(props) => {
-                  const { cx, cy, payload } = props;
-                  const price = payload[mp];
-                  const isSottocosto = price < (stats?.basePrice ?? 0);
-                  const isSconto = payload[`${mp}_sconto`];
-                  const isStockout = payload[`${mp}_stockout`];
-
-                  if (isStockout) return <Dot cx={cx} cy={cy} r={6} fill="black" />;
-                  if (isSottocosto) return <Dot cx={cx} cy={cy} r={6} fill="red" />;
-                  if (isSconto) return (
-                    <g>
-                      <circle cx={cx} cy={cy} r={8} fill="yellow" opacity={0.4} />
-                      <Dot cx={cx} cy={cy} r={4} fill={colors[index % colors.length]} />
-                    </g>
-                  );
-                  return <Dot cx={cx} cy={cy} r={4} fill={colors[index % colors.length]} />;
-                }}
-                activeDot={{ r: 8 }}
-              />
-            ))}
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-
-      {/* Wall of Shame */}
-      <div className="bg-white shadow-sm border rounded-sm overflow-hidden">
-        <div className="bg-gray-50 p-4 border-b">
-          <h3 className="font-bold text-red-700 flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5" />
-            Wall of Shame (Marketplace Sotto MAP)
-          </h3>
-        </div>
-        <table className="w-full text-left border-collapse">
-          <thead>
-            <tr className="text-xs uppercase text-gray-500 bg-gray-50">
-              <th className="px-6 py-3 border-b">Marketplace</th>
-              <th className="px-6 py-3 border-b">% Scostamento</th>
-              <th className="px-6 py-3 border-b">Delta Medio (€)</th>
-              <th className="px-6 py-3 border-b">GG Sconto</th>
-              <th className="px-6 py-3 border-b">GG Stockout</th>
-            </tr>
-          </thead>
-          <tbody>
-            {/* Logic to aggregate marketplace data */}
-            {(() => {
-              const mpStats = Array.from(new Set(filteredHistory.map(h => h.SITO_ORIGINE))).map(mp => {
-                const mpData = filteredHistory.filter(h => h.SITO_ORIGINE === mp);
-                const avgMpPrice = mpData.reduce((a, b) => a + b.PREZZO_RILEVATO, 0) / mpData.length;
-                const scostamento = (avgMpPrice / (stats?.basePrice ?? 1)) - 1;
-                const delta = avgMpPrice - (stats?.basePrice ?? 0);
-                const ggSconto = mpData.filter(h => h.PREZZO_SCONTATO).length;
-                const ggStockout = mpData.filter(h => h.STOCKOUT === "SI").length;
-                
-                return { mp, scostamento, delta, ggSconto, ggStockout };
-              })
-              .filter(s => s.scostamento < 0)
-              .sort((a, b) => a.scostamento - b.scostamento);
-
-              return mpStats.map(s => (
-                <tr key={s.mp} className="hover:bg-red-50 transition-colors">
-                  <td className="px-6 py-4 border-b font-medium">{s.mp}</td>
-                  <td className="px-6 py-4 border-b text-red-600 font-bold">{(s.scostamento * 100).toFixed(1)}%</td>
-                  <td className="px-6 py-4 border-b text-red-600 font-bold">€ {s.delta.toFixed(2)}</td>
-                  <td className="px-6 py-4 border-b">{s.ggSconto}</td>
-                  <td className="px-6 py-4 border-b">{s.ggStockout}</td>
-                </tr>
-              ));
-            })()}
-          </tbody>
-        </table>
-      </div>
+    <div className="container mx-auto py-8 px-4">
+      <PriceIntelligence />
     </div>
   );
-};
-
-export default PriceIntelligence;
+}
 
 
 
@@ -1091,7 +2205,7 @@ body {
 FILE: src/app/page.tsx
 ========================================
 import { getServerSession } from "next-auth";
-import { authOptions } from "./api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -1166,14 +2280,18 @@ FILE: package.json
     "@next-auth/prisma-adapter": "^1.0.7",
     "@prisma/client": "^5.22.0",
     "clsx": "^2.1.1",
+    "d3-interpolate": "^3.0.1",
+    "d3-scale": "^4.0.2",
     "lucide-react": "^0.468.0",
     "next": "15.1.0",
     "next-auth": "^4.24.14",
     "nodemailer": "^7.0.13",
     "papaparse": "^5.5.3",
+    "plotly.js-dist-min": "^3.5.1",
     "prisma": "^5.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-plotly.js": "^2.6.0",
     "recharts": "^2.15.0",
     "tailwind-merge": "^2.5.5"
   },
@@ -1183,6 +2301,7 @@ FILE: package.json
     "@types/papaparse": "^5.5.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/react-plotly.js": "^2.6.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9",
     "eslint-config-next": "15.1.0",

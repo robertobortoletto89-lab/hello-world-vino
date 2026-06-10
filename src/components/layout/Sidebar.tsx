@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { TrendingUp, MessageSquare, Filter, Mail, ChevronLeft, ChevronRight } from "lucide-react";
+import { TrendingUp, MessageSquare, Mail, ChevronLeft, ChevronRight, Home } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SidebarProps {
@@ -13,27 +12,19 @@ interface SidebarProps {
 
 const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
   const pathname = usePathname();
-  const { data: session } = useSession();
-
-  // Estrazione dati esclusivamente dalla sessione
-  const nomeUtente = (session?.user as any)?.nome || "Utente";
-  const cantinaVisibile = (session?.user as any)?.cantinaVisibile;
-  const cantinaDisplay = cantinaVisibile === "ALL" ? "Global Access" : cantinaVisibile || "Nessuna Cantina";
-  
-  const iniziali = nomeUtente.substring(0, 2).toUpperCase();
 
   const menuItems = [
+    {
+      title: "Navigazione",
+      items: [
+        { name: "Home", href: "/", icon: Home },
+      ],
+    },
     {
       title: "Dashboards",
       items: [
         { name: "Price Intelligence", href: "/price-intelligence", icon: TrendingUp },
         { name: "Sentiment Analysis", href: "/sentiment-analysis", icon: MessageSquare },
-      ],
-    },
-    {
-      title: "Filtri Globali",
-      items: [
-        { name: "Filtri Avanzati", href: "#", icon: Filter },
       ],
     },
     {
@@ -49,13 +40,27 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
       "bg-sidebar-bg text-white flex flex-col h-full transition-all duration-300 relative z-30 flex-shrink-0",
       isCollapsed ? "w-16" : "w-64"
     )}>
-      <div className="p-6 flex items-center justify-between">
+      {/* Area Placeholder Logo Aziendale */}
+      <div className="px-4 pt-4 pb-2">
+        <div className={cn(
+          "border border-dashed border-gray-700 rounded-lg flex items-center justify-center bg-gray-900/30 transition-all duration-300",
+          isCollapsed ? "h-10 w-10 mx-auto" : "h-14 w-full"
+        )}>
+          {isCollapsed ? (
+            <span className="text-xs font-semibold text-gray-500">Logo</span>
+          ) : (
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">Logo Aziendale</span>
+          )}
+        </div>
+      </div>
+
+      <div className="p-4 flex items-center justify-between">
         {!isCollapsed && <h1 className="text-xl font-bold tracking-tight">WINE OS</h1>}
         <button 
           onClick={() => setIsCollapsed(!isCollapsed)}
           className={cn(
             "p-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-white transition-colors border border-gray-700",
-            isCollapsed ? "mx-auto" : "absolute -right-3 top-6"
+            isCollapsed ? "mx-auto" : "absolute -right-3 top-4"
           )}
         >
           {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
@@ -95,20 +100,6 @@ const Sidebar = ({ isCollapsed, setIsCollapsed }: SidebarProps) => {
           </div>
         ))}
       </nav>
-      
-      <div className="p-4 border-t border-gray-800">
-        <div className={cn("flex items-center p-2", isCollapsed && "justify-center")}>
-          <div className="h-8 w-8 rounded-full bg-gray-600 flex items-center justify-center min-w-[32px] flex-shrink-0">
-            <span className="text-xs font-bold">{iniziali}</span>
-          </div>
-          {!isCollapsed && (
-            <div className="ml-3 overflow-hidden">
-              <p className="text-sm font-medium truncate">{nomeUtente}</p>
-              <p className="text-xs text-gray-400 italic truncate">{cantinaDisplay}</p>
-            </div>
-          )}
-        </div>
-      </div>
     </aside>
   );
 };
