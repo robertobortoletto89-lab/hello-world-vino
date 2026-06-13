@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line
 } from "recharts";
-import { MessageSquare, X, Send, Bot } from "lucide-react";
+import { MessageSquare, X, Send, Bot, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWine } from "@/context/WineContext";
 import ReactMarkdown from "react-markdown";
@@ -44,6 +44,15 @@ export default function AIChat() {
   const pathname = usePathname();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleReset = () => {
+    setMessages([
+      {
+        role: "assistant",
+        content: "Ciao, sono KYR-IA. In cosa ti posso aiutare oggi?"
+      }
+    ]);
+  };
 
   useEffect(() => {
     setIsMounted(true);
@@ -335,6 +344,13 @@ export default function AIChat() {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={handleReset}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-red-400 transition-colors"
+                title="Nuova Chat / Reset"
+              >
+                <Trash2 className="w-4.5 h-4.5" />
+              </button>
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors"
