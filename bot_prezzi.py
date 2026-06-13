@@ -150,6 +150,7 @@ def cattura_e_timbri_screenshot(url, id_prodotto, motivo):
         pointer-events: none !important;
     }
 """)
+            page.evaluate("() => { document.querySelectorAll('[id*=\\\"cookie\\\" i], [class*=\\\"cookie\\\" i], [id*=\\\"popup\\\" i], [class*=\\\"popup\\\" i], [class*=\\\"banner\\\" i], iframe').forEach(el => el.remove()); }")
             page.wait_for_timeout(1000)
             page.screenshot(path=percorso_temporaneo)
             browser.close()
