@@ -9,6 +9,8 @@ import {
 import { MessageSquare, X, Send, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWine } from "@/context/WineContext";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Message {
   role: "user" | "assistant";
@@ -366,7 +368,35 @@ export default function AIChat() {
                       {parseMessageContent(msg.content).map((part, pIdx) => (
                         <React.Fragment key={pIdx}>
                           {part.type === "text" ? (
-                            <p className="whitespace-pre-wrap leading-relaxed">{part.data as string}</p>
+                            <div className="prose prose-sm max-w-none dark:prose-invert">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  table: ({ ...props }) => (
+                                    <div className="overflow-x-auto my-3 rounded-lg border border-gray-200">
+                                      <table className="w-full border-collapse text-left text-xs" {...props} />
+                                    </div>
+                                  ),
+                                  thead: ({ ...props }) => (
+                                    <thead className="bg-gray-50 text-gray-700 font-semibold uppercase border-b border-gray-200" {...props} />
+                                  ),
+                                  th: ({ ...props }) => (
+                                    <th className="px-4 py-2 border-r border-gray-200 last:border-r-0 font-bold" {...props} />
+                                  ),
+                                  td: ({ ...props }) => (
+                                    <td className="px-4 py-2 border-t border-r border-gray-100 last:border-r-0 text-gray-600" {...props} />
+                                  ),
+                                  tr: ({ ...props }) => (
+                                    <tr className="hover:bg-gray-50/50 even:bg-gray-50/20" {...props} />
+                                  ),
+                                  p: ({ ...props }) => (
+                                    <p className="whitespace-pre-wrap leading-relaxed mb-2 last:mb-0" {...props} />
+                                  )
+                                }}
+                              >
+                                {part.data as string}
+                              </ReactMarkdown>
+                            </div>
                           ) : (
                             renderChart(part.data as ChartPayload)
                           )}
@@ -374,7 +404,11 @@ export default function AIChat() {
                       ))}
                     </div>
                   ) : (
-                    <p className="whitespace-pre-wrap leading-relaxed">{msg.content}</p>
+                    <div className="prose prose-sm max-w-none dark:prose-invert text-white">
+                      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                        {msg.content}
+                      </ReactMarkdown>
+                    </div>
                   )}
                 </div>
               );
