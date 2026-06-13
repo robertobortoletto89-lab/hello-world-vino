@@ -5,6 +5,9 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import HomeHero from "@/components/HomeHero";
+import { promises as fs } from "fs";
+import path from "path";
+import Papa from "papaparse";
 
 export default async function Home() {
   const cookieStore = await cookies();
@@ -21,14 +24,46 @@ export default async function Home() {
     user = {
       email: "admin@antigravity.it",
       ruolo: "ADMIN",
-      nome: "Admin Demo",
+      nome: "Admin",
       cantinaVisibile: "ALL"
     };
   }
 
+  // Caricamento del nome corretto da database_utenti.csv / utenti.csv
+  let nomeUtenteDb = user?.nome || "Utente";
+  try {
+    let filePath = path.join(process.cwd(), "database_utenti.csv");
+    try {
+      await fs.access(filePath);
+    } catch {
+      filePath = path.join(process.cwd(), "utenti.csv");
+    }
+    const fileContent = await fs.readFile(filePath, "utf8");
+    const parsed = Papa.parse(fileContent, {
+      header: true,
+      skipEmptyLines: true,
+      delimiter: ";",
+      transformHeader: (header: string) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
+    });
+    interface CSVUser {
+      NOME: string;
+      EMAIL: string;
+      RUOLO: string;
+    }
+    const utenti = parsed.data as CSVUser[];
+    const matchedUser = utenti.find((u) => u.EMAIL.toLowerCase() === user?.email?.toLowerCase()) ||
+                        (user?.ruolo === "ADMIN" ? utenti.find((u) => u.RUOLO === "ADMIN") : null) ||
+                        utenti[0];
+    if (matchedUser) {
+      nomeUtenteDb = matchedUser.NOME;
+    }
+  } catch (err) {
+    console.error("Errore nel caricamento del nome dal database CSV:", err);
+  }
+
   const isEmailAdmin = user?.email === "admin@antigravity.it"; 
   const isAdmin = user?.ruolo === 'ADMIN' || isEmailAdmin;
-  const nomeUtente = user?.nome || "Utente";
+  const nomeUtente = nomeUtenteDb;
   const cantinaVisibile = user?.cantinaVisibile;
   const cantinaDisplay = cantinaVisibile === "ALL" ? "Accesso Globale" : cantinaVisibile || "Nessuna Cantina";
 

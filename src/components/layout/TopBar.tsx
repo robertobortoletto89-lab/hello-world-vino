@@ -30,15 +30,32 @@ const TopBar = ({ nomeUtente: nomeUtenteProp }: TopBarProps) => {
 
   useEffect(() => {
     setIsMounted(true);
-    const cookiesList = document.cookie.split(";").map(c => c.trim());
-    const demoCookie = cookiesList.find(c => c.startsWith("kyria_demo_session="));
-    if (demoCookie && demoCookie.split("=")[1] === "admin_demo") {
-      setDemoUser({
-        nome: "Admin",
-        ruolo: "ADMIN",
-        cantinaVisibile: "ALL"
+    fetch("/api/user")
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error("Errore nel recupero utente");
+      })
+      .then((data) => {
+        if (data && data.nome) {
+          setDemoUser({
+            nome: data.nome,
+            ruolo: data.ruolo,
+            cantinaVisibile: data.cantinaVisibile
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Errore nel recupero utente dal database:", err);
+        const cookiesList = document.cookie.split(";").map(c => c.trim());
+        const demoCookie = cookiesList.find(c => c.startsWith("kyria_demo_session="));
+        if (demoCookie && demoCookie.split("=")[1] === "admin_demo") {
+          setDemoUser({
+            nome: "Admin",
+            ruolo: "ADMIN",
+            cantinaVisibile: "ALL"
+          });
+        }
       });
-    }
   }, []);
 
   // Estrazione dati dalla sessione
