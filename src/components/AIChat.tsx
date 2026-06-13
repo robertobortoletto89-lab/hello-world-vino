@@ -24,20 +24,20 @@ interface ChartPayload {
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export default function AIChat() {
-  const { selectedWineId, setSelectedWineId, resetTrigger } = useWine();
+  const { 
+    setSelectedCantina, 
+    selectedWineId, 
+    setSelectedWineId, 
+    messages, 
+    setMessages 
+  } = useWine();
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { 
-      role: "assistant", 
-      content: "Ciao, sono KYR-IA. In cosa ti posso aiutare oggi?" 
-    }
-  ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   
   // Custom chatbot states
-  const [wines, setWines] = useState<Array<{ ID_PRODOTTO: string; NOME_PRODOTTO: string }>>([]);
+  const [wines, setWines] = useState<Array<{ ID_PRODOTTO: string; NOME_PRODOTTO: string; CANTINA: string }>>([]);
   const [showDropdownFor, setShowDropdownFor] = useState<"anomalie" | "dumping" | "sentiment" | null>(null);
   const pathname = usePathname();
 
@@ -56,17 +56,31 @@ export default function AIChat() {
       .catch(err => console.error("Errore nel caricamento prodotti per chatbot:", err));
   }, []);
 
-  // Resetta la cronologia/memoria della chat al reset dei filtri
-  useEffect(() => {
-    if (resetTrigger > 0) {
-      setMessages([
-        { 
-          role: "assistant", 
-          content: "Ciao, sono KYR-IA. In cosa ti posso aiutare oggi?" 
-        }
-      ]);
+  const checkForWineMention = (text: string) => {
+    const lowerText = text.toLowerCase();
+    
+    const matchedWine = wines.find(w => {
+      const name = w.NOME_PRODOTTO.toLowerCase();
+      const id = w.ID_PRODOTTO.toLowerCase();
+      
+      const cleanName = name.replace(/["'“”]/g, "").trim();
+      const cleanText = lowerText.replace(/["'“”]/g, "").trim();
+
+      return (
+        cleanText.includes(id) ||
+        cleanText.includes(cleanName) ||
+        (cleanText.length > 5 && cleanName.includes(cleanText))
+      );
+    });
+
+    if (matchedWine) {
+      console.log("Kyria intercettato menzione vino:", matchedWine);
+      setSelectedCantina(matchedWine.CANTINA);
+      setSelectedWineId(matchedWine.ID_PRODOTTO);
+      return matchedWine.ID_PRODOTTO;
     }
-  }, [resetTrigger]);
+    return null;
+  };
 
   // Listen to state modifications from other parts of the app
   useEffect(() => {
@@ -116,6 +130,10 @@ export default function AIChat() {
   const sendMessageText = async (text: string) => {
     if (isLoading) return;
 
+    // Intercetta menzione vino ed aggiorna il contesto globale
+    const interceptedWineId = checkForWineMention(text);
+    const activeWineId = interceptedWineId || selectedWineId;
+
     const userMessage: Message = { role: "user", content: text };
     setMessages(prev => [...prev, userMessage]);
     setIsLoading(true);
@@ -124,7 +142,10 @@ export default function AIChat() {
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: [...messages, userMessage] })
+        body: JSON.stringify({ 
+          messages: [...messages, userMessage],
+          selectedWineId: activeWineId
+        })
       });
 
       if (!response.ok) {
@@ -146,7 +167,7 @@ export default function AIChat() {
   };
 
   const handlePillClick = (promptType: "anomalie" | "dumping" | "sentiment") => {
-    const wineId = sessionStorage.getItem("vinoSelezionato") || selectedWineId;
+    const wineId = selectedWineId;
     if (!wineId) {
       setShowDropdownFor(promptType);
     } else {
@@ -381,9 +402,11 @@ export default function AIChat() {
                   onChange={(e) => {
                     const val = e.target.value;
                     if (val) {
-                      sessionStorage.setItem("vinoSelezionato", val);
+                      const wineObj = wines.find(w => w.ID_PRODOTTO === val);
+                      if (wineObj) {
+                        setSelectedCantina(wineObj.CANTINA);
+                      }
                       setSelectedWineId(val);
-                      window.dispatchEvent(new CustomEvent("vino-persistito-cambiato", { detail: val }));
                       launchPillPrompt(showDropdownFor, val);
                       setShowDropdownFor(null);
                     }

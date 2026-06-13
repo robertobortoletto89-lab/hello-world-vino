@@ -97,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Applica le restrizioni globali al System Prompt del Copilot
-    const finalSystemInstruction = `${systemInstruction} Rispondi SEMPRE E SOLO con testo chiaro, formattato in Markdown o tabelle Markdown. È ASSOLUTAMENTE VIETATA la generazione di qualsiasi codice o markup per grafici (come grafici a barre, grafici a torta/ciambella o qualsiasi altro tipo di grafico). Ti devi basare esclusivamente sui numeri in modo testuale e conciso.`;
+    const finalSystemInstruction = `${systemInstruction} Rispondi SEMPRE E SOLO con testo chiaro, formattato in Markdown o tabelle Markdown. È ASSOLUTAMENTE VIETATA la generazione di qualsiasi codice per grafici Recharts (come grafici a barre o a ciambella o qualsiasi altro componente visuale). Ti devi basare esclusivamente sui numeri in modo testuale e conciso. Non generare tag HTML, componenti React, o grafici di alcun tipo.`;
 
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({

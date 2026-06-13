@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
     const cantinaVisibile = user.cantinaVisibile;
     const isAdmin = role === "ADMIN" || user.email === "admin@antigravity.it";
 
-    const { messages } = await req.json();
+    const { messages, selectedWineId } = await req.json();
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json({ error: "Messaggi non validi" }, { status: 400 });
     }
@@ -132,6 +132,17 @@ export async function POST(req: NextRequest) {
         const cantina = productCantinaMap.get(prodName);
         return cantina === cantinaVisibile.trim().toLowerCase();
       });
+    }
+
+    // Filtro per vino selezionato (se fornito)
+    if (selectedWineId) {
+      const wineObj = dbData.find(w => w.ID_PRODOTTO === selectedWineId);
+      const wineName = wineObj?.NOME_PRODOTTO;
+      
+      filteredPrices = filteredPrices.filter(p => p.ID_PRODOTTO === selectedWineId);
+      if (wineName) {
+        filteredReviews = filteredReviews.filter(r => r.NOME_PRODOTTO?.trim().toLowerCase() === wineName.trim().toLowerCase());
+      }
     }
 
     // 3. CONDENSAZIONE DATI PER RIDURRE TOKEN
@@ -198,10 +209,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Chiave API_VINO non configurata" }, { status: 500 });
     }
 
+    let systemInstruction = "Sei KYRIA, l'Analista Quantitativo IA della piattaforma WineTech. Rispondi in modo formale e brutale sui numeri. Basati SOLO sui dati forniti. REGOLA GRAFICI: Se l'utente chiede confronti o andamenti, NON spiegare a parole. Rispondi includendo il payload dei dati racchiuso ESATTAMENTE tra i tag <CHART> e </CHART>. Il formato interno deve essere un JSON valido con questa struttura: {'chart_type': 'bar', 'title': 'Titolo', 'data': [{'name': 'Sito', 'value': 70}]}. Non aggiungere testo fuori dai tag se generi un grafico. IMPORTANTE: Quando l'utente ti chiede conteggi su prodotti esauriti o in 'Stockout', devi cercare esclusivamente le righe in cui la colonna 'STOCKOUT' contiene la stringa 'SI'.";
+
+    if (selectedWineId) {
+      const wineObj = dbData.find(w => w.ID_PRODOTTO === selectedWineId);
+      const wineName = wineObj?.NOME_PRODOTTO || selectedWineId;
+      systemInstruction += ` ATTENZIONE: Attualmente l'utente sta filtrando la dashboard per il vino "${wineName}" (ID: ${selectedWineId}). Tutte le tue risposte e analisi devono essere focalizzate e isolate ESCLUSIVAMENTE su questa specifica etichetta.`;
+    }
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: "Sei KYRIA, l'Analista Quantitativo IA della piattaforma WineTech. Rispondi in modo formale e brutale sui numeri. Basati SOLO sui dati forniti. REGOLA GRAFICI: Se l'utente chiede confronti o andamenti, NON spiegare a parole. Rispondi includendo il payload dei dati racchiuso ESATTAMENTE tra i tag <CHART> e </CHART>. Il formato interno deve essere un JSON valido con questa struttura: {'chart_type': 'bar', 'title': 'Titolo', 'data': [{'name': 'Sito', 'value': 70}]}. Non aggiungere testo fuori dai tag se generi un grafico. IMPORTANTE: Quando l'utente ti chiede conteggi su prodotti esauriti o in 'Stockout', devi cercare esclusivamente le righe in cui la colonna 'STOCKOUT' contiene la stringa 'SI'."
+      systemInstruction: systemInstruction,
     });
 
     const history = messages.slice(0, -1) as ChatMessage[];

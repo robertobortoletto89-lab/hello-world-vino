@@ -3,91 +3,156 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
+export interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
 interface WineContextType {
+  selectedCantina: string;
+  setSelectedCantina: (cantina: string) => void;
   selectedWineId: string | null;
   setSelectedWineId: (id: string | null) => void;
-  resetWine: () => void;
-  resetTrigger: number;
+  messages: Message[];
+  setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+  resetFilters: () => void;
 }
 
 const WineContext = createContext<WineContextType | undefined>(undefined);
+
+const INITIAL_WELCOME_MESSAGE: Message = {
+  role: "assistant",
+  content: "Ciao, sono KYR-IA. In cosa ti posso aiutare oggi?"
+};
 
 export const WineProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  
+
+  const [selectedCantina, setSelectedCantinaState] = useState<string>("all");
   const [selectedWineId, setSelectedWineIdState] = useState<string | null>(null);
-  const [resetTrigger, setResetTrigger] = useState(0);
+  const [messages, setMessagesState] = useState<Message[]>([]);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Sincronizza lo stato del contesto con il parametro dell'URL o sessionStorage
+  // Caricamento iniziale dal client mount
   useEffect(() => {
-    const urlWineId = searchParams.get("id_prodotto");
-    if (urlWineId) {
-      if (urlWineId !== selectedWineId) {
-        setSelectedWineIdState(urlWineId);
-        sessionStorage.setItem("vinoSelezionato", urlWineId);
-      }
-    } else {
-      const persistedWineId = sessionStorage.getItem("vinoSelezionato");
-      if (persistedWineId && pathname !== "/" && pathname !== "/login") {
-        setSelectedWineIdState(persistedWineId);
-        const current = new URLSearchParams(Array.from(searchParams.entries()));
-        current.set("id_prodotto", persistedWineId);
-        const search = current.toString();
-        const query = search ? `?${search}` : "";
-        router.push(`${pathname}${query}`);
-      } else if (selectedWineId !== null) {
-        setSelectedWineIdState(null);
-      }
-    }
-  }, [searchParams, pathname, router, selectedWineId]);
-
-  const setSelectedWineId = (id: string | null) => {
-    setSelectedWineIdState(id);
+    setIsMounted(true);
     
-    // Persistenza in sessionStorage per compatibilità
-    if (id) {
-      sessionStorage.setItem("vinoSelezionato", id);
-    } else {
-      sessionStorage.removeItem("vinoSelezionato");
+    // Carica cantina
+    const savedCantina = sessionStorage.getItem("selectedCantina");
+    const urlCantina = searchParams.get("cantina");
+    if (urlCantina) {
+      setSelectedCantinaState(urlCantina);
+    } else if (savedCantina) {
+      setSelectedCantinaState(savedCantina);
     }
 
-    // Sincronizza con i parametri dell'URL
+    // Carica vino
+    const savedWine = sessionStorage.getItem("selectedWineId");
+    const urlWine = searchParams.get("id_prodotto");
+    if (urlWine) {
+      setSelectedWineIdState(urlWine);
+    } else if (savedWine) {
+      setSelectedWineIdState(savedWine);
+    }
+
+    // Carica messaggi
+    const savedMessages = sessionStorage.getItem("chatMessages");
+    if (savedMessages) {
+      try {
+        setMessagesState(JSON.parse(savedMessages));
+      } catch {
+        setMessagesState([INITIAL_WELCOME_MESSAGE]);
+      }
+    } else {
+      setMessagesState([INITIAL_WELCOME_MESSAGE]);
+    }
+  }, []);
+
+  // Sincronizza i cambiamenti di stato con sessionStorage e URL
+  useEffect(() => {
+    if (!isMounted) return;
+
+    sessionStorage.setItem("selectedCantina", selectedCantina);
+    if (selectedWineId) {
+      sessionStorage.setItem("selectedWineId", selectedWineId);
+    } else {
+      sessionStorage.removeItem("selectedWineId");
+    }
+    sessionStorage.setItem("chatMessages", JSON.stringify(messages));
+
     const current = new URLSearchParams(Array.from(searchParams.entries()));
-    if (id) {
-      current.set("id_prodotto", id);
+    
+    if (selectedCantina && selectedCantina !== "all") {
+      current.set("cantina", selectedCantina);
+    } else {
+      current.delete("cantina");
+    }
+
+    if (selectedWineId) {
+      current.set("id_prodotto", selectedWineId);
     } else {
       current.delete("id_prodotto");
     }
+
     const search = current.toString();
     const query = search ? `?${search}` : "";
-    router.push(`${pathname}${query}`);
+    
+    const expectedUrl = `${pathname}${query}`;
+    const currentUrl = `${pathname}${window.location.search}`;
+    if (expectedUrl !== currentUrl) {
+      router.replace(expectedUrl);
+    }
+  }, [selectedCantina, selectedWineId, messages, isMounted, pathname, router, searchParams]);
 
-    // Dispatche un evento custom per i componenti che ascoltano eventi globali
-    window.dispatchEvent(new CustomEvent("vino-persistito-cambiato", { detail: id }));
+  const setSelectedCantina = (cantina: string) => {
+    setSelectedCantinaState(cantina);
   };
 
-  const resetWine = () => {
-    setSelectedWineIdState(null);
-    sessionStorage.removeItem("vinoSelezionato");
+  const setSelectedWineId = (id: string | null) => {
+    setSelectedWineIdState(id);
+  };
 
-    // Svuota i parametri dell'URL relativi al vino
+  const setMessages = (update: Message[] | ((prev: Message[]) => Message[])) => {
+    setMessagesState(prev => {
+      const next = typeof update === "function" ? update(prev) : update;
+      sessionStorage.setItem("chatMessages", JSON.stringify(next));
+      return next;
+    });
+  };
+
+  const resetFilters = () => {
+    setSelectedCantinaState("all");
+    setSelectedWineIdState(null);
+    setMessagesState([INITIAL_WELCOME_MESSAGE]);
+    
+    sessionStorage.setItem("selectedCantina", "all");
+    sessionStorage.removeItem("selectedWineId");
+    sessionStorage.setItem("chatMessages", JSON.stringify([INITIAL_WELCOME_MESSAGE]));
+
     const current = new URLSearchParams(Array.from(searchParams.entries()));
+    current.delete("cantina");
     current.delete("id_prodotto");
+    current.delete("data_inizio");
+    current.delete("data_fine");
     const search = current.toString();
     const query = search ? `?${search}` : "";
-    router.push(`${pathname}${query}`);
-
-    // Dispatche l'evento di reset
-    window.dispatchEvent(new CustomEvent("vino-persistito-cambiato", { detail: null }));
-    
-    // Incrementa il trigger di reset per allertare il Chatbot
-    setResetTrigger((prev) => prev + 1);
+    router.replace(`${pathname}${query}`);
   };
 
   return (
-    <WineContext.Provider value={{ selectedWineId, setSelectedWineId, resetWine, resetTrigger }}>
+    <WineContext.Provider
+      value={{
+        selectedCantina,
+        setSelectedCantina,
+        selectedWineId,
+        setSelectedWineId,
+        messages,
+        setMessages,
+        resetFilters
+      }}
+    >
       {children}
     </WineContext.Provider>
   );
