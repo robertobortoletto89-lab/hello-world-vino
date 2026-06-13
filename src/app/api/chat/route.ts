@@ -13,34 +13,47 @@ interface SessionUser {
   email?: string | null;
 }
 
-interface DatabaseVinoRow {
-  NOME_PRODOTTO?: string;
-  CANTINA?: string;
-  [key: string]: string | number | boolean | undefined | null;
-}
-
-interface StoricoPrezzoRow {
-  CANTINA?: string;
-  DATA_ESTRAZIONE?: string;
-  PREZZO_RILEVATO?: string | number | null;
-  PREZZO_SCONTATO?: string | number | null;
-  STOCKOUT?: string;
-  NOME_PRODOTTO?: string;
-  SITO_ORIGINE?: string;
-  [key: string]: string | number | boolean | undefined | null;
-}
-
-interface SentimentElaboratoRow {
-  NOME_PRODOTTO?: string;
-  SENTIMENT_SCORE?: string;
-  PAROLE_CHIAVE_ESTRATTE?: string;
-  [key: string]: string | number | boolean | undefined | null;
-}
-
 interface ChatMessage {
   role: string;
   content?: string;
   parts?: Array<{ text?: string }>;
+}
+
+interface DatabaseVinoRow {
+  CANTINA?: string;
+  ID_PRODOTTO?: string;
+  NOME_PRODOTTO?: string;
+  PREZZO_BASE?: string;
+  [key: string]: string | undefined;
+}
+
+interface StoricoPrezzoRow {
+  DATA_ESTRAZIONE?: string;
+  ID_PRODOTTO?: string;
+  CANTINA?: string;
+  NOME_PRODOTTO?: string;
+  SITO_ORIGINE?: string;
+  SITO_ECOMMERCE?: string;
+  PREZZO_RILEVATO?: string;
+  PREZZO_SCONTATO?: string;
+  STOCKOUT?: string;
+  TRIGGER_REASON?: string;
+  [key: string]: string | undefined;
+}
+
+interface SentimentElaboratoRow {
+  ID_PRODOTTO?: string;
+  CANTINA?: string;
+  NOME_PRODOTTO?: string;
+  SITO_ECOMMERCE?: string;
+  RATING_ORIGINALE?: string;
+  RATING?: string;
+  SENTIMENT_SCORE?: string;
+  PAROLE_CHIAVE_ESTRATTE?: string;
+  TESTO_COMMENTO?: string;
+  TESTO_ORIGINALE?: string;
+  TESTO_RECENSIONE?: string;
+  [key: string]: string | undefined;
 }
 
 export async function POST(req: NextRequest) {
@@ -84,146 +97,110 @@ export async function POST(req: NextRequest) {
     }
 
     const dbContent = fs.readFileSync(dbPath, "utf8");
-    const dbParsed = Papa.parse(dbContent, { 
+    const dbParsed = Papa.parse<DatabaseVinoRow>(dbContent, { 
       header: true, 
       skipEmptyLines: true, 
       delimiter: ";",
       transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
     });
-    const dbData = dbParsed.data as DatabaseVinoRow[];
+    const dbData = dbParsed.data;
 
     const storicoContent = fs.readFileSync(storicoPath, "utf8");
-    const storicoParsed = Papa.parse(storicoContent, { 
+    const storicoParsed = Papa.parse<StoricoPrezzoRow>(storicoContent, { 
       header: true, 
       skipEmptyLines: true, 
       delimiter: ";",
       transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
     });
-    const storicoData = storicoParsed.data as StoricoPrezzoRow[];
+    const storicoData = storicoParsed.data;
 
     const sentimentContent = fs.readFileSync(sentimentPath, "utf8");
-    const sentimentParsed = Papa.parse(sentimentContent, { 
+    const sentimentParsed = Papa.parse<SentimentElaboratoRow>(sentimentContent, { 
       header: true, 
       skipEmptyLines: true, 
       delimiter: ";",
       transformHeader: (header) => header.trim().replace(/^\uFEFF/, '').toUpperCase()
     });
-    const sentimentData = sentimentParsed.data as SentimentElaboratoRow[];
+    const sentimentData = sentimentParsed.data;
 
-    // 2. FILTRAGGIO IN BASE AI PERMESSI
-    let filteredPrices = storicoData;
-    let filteredReviews = sentimentData;
+    // 2. FILTRAGGIO IN BASE AI PERMESSI (RUOLO/CANTINA)
+    let filteredDb = dbData;
+    let filteredStorico = storicoData;
+    let filteredSentiment = sentimentData;
 
-    if (!isAdmin && cantinaVisibile !== "ALL") {
-      // Filtro prezzi storico
-      filteredPrices = storicoData.filter((p) => p.CANTINA === cantinaVisibile);
-
-      // Costruzione mappa NOME_PRODOTTO -> CANTINA per filtrare il sentiment
-      const productCantinaMap = new Map<string, string>();
-      dbData.forEach((p) => {
-        if (p.NOME_PRODOTTO && p.CANTINA) {
-          productCantinaMap.set(p.NOME_PRODOTTO.trim().toLowerCase(), p.CANTINA.trim().toLowerCase());
-        }
-      });
-
-      // Filtro recensioni
-      filteredReviews = sentimentData.filter((r) => {
-        const prodName = String(r.NOME_PRODOTTO || "").trim().toLowerCase();
-        const cantina = productCantinaMap.get(prodName);
-        return cantina === cantinaVisibile.trim().toLowerCase();
-      });
+    if (!isAdmin && cantinaVisibile && cantinaVisibile !== "ALL") {
+      const filterCantina = cantinaVisibile.trim().toLowerCase();
+      filteredDb = dbData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
+      filteredStorico = storicoData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
+      filteredSentiment = sentimentData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
     }
 
-    // Filtro per vino selezionato (se fornito)
-    if (selectedWineId) {
-      const wineObj = dbData.find(w => w.ID_PRODOTTO === selectedWineId);
-      const wineName = wineObj?.NOME_PRODOTTO;
-      
-      filteredPrices = filteredPrices.filter(p => p.ID_PRODOTTO === selectedWineId);
-      if (wineName) {
-        filteredReviews = filteredReviews.filter(r => r.NOME_PRODOTTO?.trim().toLowerCase() === wineName.trim().toLowerCase());
-      }
-    }
-
-    // 3. CONDENSAZIONE DATI PER RIDURRE TOKEN
-    const rawFilteredData = filteredPrices.map(p => ({
-      ...p,
-      DATA_ESTRAZIONE: p.DATA_ESTRAZIONE ? p.DATA_ESTRAZIONE.split(" ")[0] : ""
-    }));
-    const parseItalianDate = (dateStr: string) => {
-      if (!dateStr) return 0;
-      const parts = dateStr.split('/');
-      if (parts.length !== 3) return 0;
-      return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
-    };
-    const now = Date.now();
-    const sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
-    const recentPrices = rawFilteredData.filter((row) => {
-      const rowDate = parseItalianDate(row.DATA_ESTRAZIONE || "");
-      return rowDate >= sevenDaysAgo;
-    });
-
-    const condensedPrices = recentPrices.map((p) => ({
-      DATA: p.DATA_ESTRAZIONE,
-      CANTINA: p.CANTINA,
-      PROD: p.NOME_PRODOTTO,
-      SITO: p.SITO_ORIGINE,
-      PRZ: parseFloat(p.PREZZO_RILEVATO?.toString().replace(",", ".") || "0"),
-      PRZ_SC: p.PREZZO_SCONTATO ? parseFloat(p.PREZZO_SCONTATO.toString().replace(",", ".")) : null,
-      ST_OUT: p.STOCKOUT
+    // Creazione dei dataset condensati da passare nel System Prompt
+    const dbRows = filteredDb.map((row) => ({
+      CANTINA: row.CANTINA || "",
+      ID_PRODOTTO: row.ID_PRODOTTO || "",
+      NOME_PRODOTTO: row.NOME_PRODOTTO || "",
+      PREZZO_BASE: row.PREZZO_BASE || ""
     }));
 
-    // Aggregazione sentiment
-    let positiveCount = 0;
-    let negativeCount = 0;
-    let neutralCount = 0;
-    const keywordsMap: { [key: string]: number } = {};
+    const storicoRows = filteredStorico.map((row) => ({
+      DATA_ESTRAZIONE: row.DATA_ESTRAZIONE || "",
+      ID_PRODOTTO: row.ID_PRODOTTO || "",
+      CANTINA: row.CANTINA || "",
+      NOME_PRODOTTO: row.NOME_PRODOTTO || "",
+      SITO_ORIGINE: row.SITO_ORIGINE || row.SITO_ECOMMERCE || "",
+      PREZZO_RILEVATO: row.PREZZO_RILEVATO || "",
+      PREZZO_SCONTATO: row.PREZZO_SCONTATO || "",
+      STOCKOUT: row.STOCKOUT || "",
+      TRIGGER_REASON: row.TRIGGER_REASON || ""
+    }));
 
-    filteredReviews.forEach((r) => {
-      const score = String(r.SENTIMENT_SCORE || "").trim().toLowerCase();
-      if (score.includes("positiv")) positiveCount++;
-      else if (score.includes("negativ")) negativeCount++;
-      else neutralCount++;
+    const sentimentRows = filteredSentiment.map((row) => ({
+      ID_PRODOTTO: row.ID_PRODOTTO || "",
+      CANTINA: row.CANTINA || "",
+      NOME_PRODOTTO: row.NOME_PRODOTTO || "",
+      SITO_ECOMMERCE: row.SITO_ECOMMERCE || "",
+      RATING_ORIGINALE: row.RATING_ORIGINALE || row.RATING || "",
+      SENTIMENT_SCORE: row.SENTIMENT_SCORE || "",
+      PAROLE_CHIAVE_ESTRATTE: row.PAROLE_CHIAVE_ESTRATTE || "",
+      TESTO_COMMENTO: String(row.TESTO_COMMENTO || row.TESTO_ORIGINALE || row.TESTO_RECENSIONE || "").substring(0, 120)
+    }));
 
-      const kw = r.PAROLE_CHIAVE_ESTRATTE;
-      if (kw) {
-        kw.split(",").forEach((k: string) => {
-          const cleanK = k.trim().toLowerCase();
-          if (cleanK && cleanK.length > 2) {
-            keywordsMap[cleanK] = (keywordsMap[cleanK] || 0) + 1;
-          }
-        });
-      }
-    });
+    const dbCsv = Papa.unparse(dbRows, { delimiter: ";" });
+    const storicoCsv = Papa.unparse(storicoRows, { delimiter: ";" });
+    const sentimentCsv = Papa.unparse(sentimentRows, { delimiter: ";" });
 
-    // Estrarre le top 10 parole chiave
-    const topKeywords = Object.entries(keywordsMap)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([k, v]) => `${k} (${v})`)
-      .join(", ");
-
-    // 4. INIZIALIZZAZIONE GEMINI E CHIAMATA CONTESTUALIZZATA
-    const apiKey = process.env.API_VINO;
-    if (!apiKey) {
-      return NextResponse.json({ error: "Chiave API_VINO non configurata" }, { status: 500 });
-    }
-
-    let systemInstruction = "Sei KYRIA, l'Analista Quantitativo IA della piattaforma WineTech. Rispondi in modo formale e brutale sui numeri. Basati SOLO sui dati forniti. REGOLA GRAFICI: Se l'utente chiede confronti o andamenti, NON spiegare a parole. Rispondi includendo il payload dei dati racchiuso ESATTAMENTE tra i tag <CHART> e </CHART>. Il formato interno deve essere un JSON valido con questa struttura: {'chart_type': 'bar', 'title': 'Titolo', 'data': [{'name': 'Sito', 'value': 70}]}. Non aggiungere testo fuori dai tag se generi un grafico. IMPORTANTE: Quando l'utente ti chiede conteggi su prodotti esauriti o in 'Stockout', devi cercare esclusivamente le righe in cui la colonna 'STOCKOUT' contiene la stringa 'SI'.";
+    // 3. SYSTEM PROMPT CON REGOLE FERREE
+    let systemInstruction = `Sei l'Assistente Copilot (KYRIA) della piattaforma WineTech. Rispondi in italiano.
+Segui SCRUPOLOSAMENTE le seguenti regole ferree:
+1. Rispondi in Markdown o tabelle Markdown. È ASSOLUTAMENTE VIETATA la generazione di codice (Javascript, React, Recharts, HTML) per grafici o componenti visuali. Se devi mostrare andamenti o confronti, puoi includere il payload dei dati racchiuso ESATTAMENTE tra i tag <CHART> e </CHART> con la seguente struttura JSON: {"chart_type": "bar" | "line" | "pie", "title": "Titolo", "data": [{"name": "Etichetta", "value": Numero}]}. Non generare tag HTML generici, componenti React o codice di altro tipo.
+2. Per associare lo storico dei prezzi al PREZZO_BASE corretto, fai un join logico tra i dataset usando ID_PRODOTTO o NOME_PRODOTTO.
+3. Per calcolare il 'Sottocosto' o 'Prezzo sotto base', DEVI confrontare il 'PREZZO_RILEVATO' o 'PREZZO_SCONTATO' (usa il prezzo scontato se presente e maggiore di 0) con il 'PREZZO_BASE' dell'anagrafica, oppure controllare se la colonna 'TRIGGER_REASON' è 'SOTTO_PREZZO'. Non inventare colonne o nomi di colonne diversi da quelli reali.
+4. Se l'utente chiede il 'Sentiment' di uno specifico vino, cerca quel nome o ID nel dataset del sentiment fornito e fornisci le metriche (es. polarità, rating originale, star rating, e parole chiave) associate a quella specifica etichetta.
+5. Se l'utente specifica una Cantina, tutte le risposte successive DEVONO essere filtrate per quella Cantina, a meno che non venga richiesto un reset.
+`;
 
     if (selectedWineId) {
-      const wineObj = dbData.find(w => w.ID_PRODOTTO === selectedWineId);
+      const wineObj = dbData.find((w) => w.ID_PRODOTTO === selectedWineId);
       const wineName = wineObj?.NOME_PRODOTTO || selectedWineId;
-      systemInstruction += ` ATTENZIONE: Attualmente l'utente sta filtrando la dashboard per il vino "${wineName}" (ID: ${selectedWineId}). Tutte le tue risposte e analisi devono essere focalizzate e isolate ESCLUSIVAMENTE su questa specifica etichetta.`;
+      systemInstruction += `\nATTENZIONE: Attualmente l'utente sta filtrando la dashboard per il vino "${wineName}" (ID: ${selectedWineId}). Concentra l'analisi iniziale su questa specifica etichetta, pur potendo rispondere su altri prodotti della stessa cantina si richiesto.`;
     }
 
-    const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      systemInstruction: systemInstruction,
-    });
+    systemInstruction += `\n\n=== DATI INIETTATI DAI FILE CSV ===
+--- ANAGRAFICA VINI (database_vini.csv) ---
+${dbCsv}
 
+--- STORICO PREZZI (storico_prezzi.csv) ---
+${storicoCsv}
+
+--- SENTIMENT ED ELABORAZIONE RECENSIONI (sentiment_vini_elaborato.csv) ---
+${sentimentCsv}
+================
+`;
+
+    // 4. PREPARAZIONE DELLA CRONOLOGIA DEI MESSAGGI
     const history = messages.slice(0, -1) as ChatMessage[];
+    const lastMessage = (messages[messages.length - 1] as ChatMessage | undefined)?.content || "";
 
     const safeHistory = history.map((msg) => ({
       role: msg.role === 'bot' || msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user',
@@ -233,27 +210,23 @@ export async function POST(req: NextRequest) {
       safeHistory.shift();
     }
 
-    const lastMessage = (messages[messages.length - 1] as ChatMessage | undefined)?.content || "";
+    // Inizializzazione Gemini e chiamata
+    const apiKey = process.env.API_VINO;
+    if (!apiKey) {
+      return NextResponse.json({ error: "Chiave API_VINO non configurata" }, { status: 500 });
+    }
 
-    const promptConTesto = `CONTESTO DATI CORRENTI PER LA TUA VISIBILITÀ (${cantinaVisibile}):
----
-DATI PREZZI STORICO (ULTIMI 7 GIORNI, max 100 righe):
-${JSON.stringify(condensedPrices.slice(0, 100))}
-
-TOTALI SENTIMENT RECENSIONI:
-- Positive: ${positiveCount}
-- Negative: ${negativeCount}
-- Neutre: ${neutralCount}
-- Top parole chiave sentiment: ${topKeywords}
----
-
-DOMANDA UTENTE: ${lastMessage}`;
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: systemInstruction,
+    });
 
     const chat = model.startChat({
       history: safeHistory,
     });
 
-    const result = await chat.sendMessage(promptConTesto);
+    const result = await chat.sendMessage(lastMessage);
     const responseText = result.response.text();
 
     return NextResponse.json({ content: responseText });

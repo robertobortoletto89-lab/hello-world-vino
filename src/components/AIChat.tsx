@@ -203,7 +203,7 @@ export default function AIChat() {
 
   const parseMessageContent = (content: string) => {
     const chartRegex = /<CHART>([\s\S]*?)<\/CHART>/g;
-    const parts: Array<{ type: "text" | "chart"; data: string | ChartPayload }> = [];
+    const parts: Array<{ type: "text"; data: string } | { type: "chart"; data: ChartPayload }> = [];
     let lastIndex = 0;
     let match;
 
@@ -366,9 +366,9 @@ export default function AIChat() {
                       {parseMessageContent(msg.content).map((part, pIdx) => (
                         <React.Fragment key={pIdx}>
                           {part.type === "text" ? (
-                            <p className="whitespace-pre-wrap leading-relaxed">{part.data}</p>
+                            <p className="whitespace-pre-wrap leading-relaxed">{part.data as string}</p>
                           ) : (
-                            renderChart(part.data)
+                            renderChart(part.data as ChartPayload)
                           )}
                         </React.Fragment>
                       ))}
