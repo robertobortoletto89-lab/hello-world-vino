@@ -39,21 +39,16 @@ export default function HomeHero({ isAdmin, cantinaDisplay, nomeUtente }: HomeHe
       {/* Subtle decorative background gradients */}
       <div className="absolute -top-24 -left-24 w-48 h-48 bg-blue-50 rounded-full blur-3xl opacity-60"></div>
       <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-indigo-50 rounded-full blur-3xl opacity-60"></div>
-      
-      <div className="inline-flex items-center justify-center space-x-2 px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold uppercase tracking-wider">
-        <Sparkles className="h-3.5 w-3.5" />
-        <span>AI Command Center</span>
-      </div>
 
       <div className="space-y-2">
         <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight">
           Benvenuto. Cosa vogliamo analizzare oggi?
         </h1>
-        <p className="text-sm text-gray-500 max-w-lg mx-auto">
-          {isAdmin 
-            ? `Pannello di controllo globale per l'amministratore (${cantinaDisplay})`
-            : `Dashboard per ${nomeUtente} (${cantinaDisplay})`}
-        </p>
+        {!isAdmin && (
+          <p className="text-sm text-gray-500 max-w-lg mx-auto">
+            Dashboard per {nomeUtente} ({cantinaDisplay})
+          </p>
+        )}
       </div>
 
       {/* Unlocked Search Bar */}

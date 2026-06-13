@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 
 interface TopBarProps {
   isCollapsed: boolean;
+  nomeUtente?: string;
 }
 
 interface Product {
@@ -16,7 +17,7 @@ interface Product {
   CANTINA: string;
 }
 
-const TopBar = ({}: TopBarProps) => {
+const TopBar = ({ nomeUtente: nomeUtenteProp }: TopBarProps) => {
   // const { data: session } = useSession();
   const router = useRouter();
   const pathname = usePathname();
@@ -33,7 +34,7 @@ const TopBar = ({}: TopBarProps) => {
     const demoCookie = cookiesList.find(c => c.startsWith("kyria_demo_session="));
     if (demoCookie && demoCookie.split("=")[1] === "admin_demo") {
       setDemoUser({
-        nome: "Admin Demo",
+        nome: "Admin",
         ruolo: "ADMIN",
         cantinaVisibile: "ALL"
       });
@@ -44,7 +45,7 @@ const TopBar = ({}: TopBarProps) => {
   // const sessionUser = session?.user as unknown as { nome?: string; ruolo?: string; cantinaVisibile?: string } | null | undefined;
   const user = demoUser;
 
-  const nomeUtente = user?.nome || "Utente";
+  const nomeUtente = nomeUtenteProp || user?.nome || "Utente";
   const ruolo = user?.ruolo;
   const cantinaVisibile = user?.cantinaVisibile;
   const isAdmin = ruolo === 'ADMIN';

@@ -6,7 +6,7 @@ import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, LineChart, Line
 } from "recharts";
-import { MessageSquare, X, Send, Bot, RefreshCw } from "lucide-react";
+import { MessageSquare, X, Send, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -27,7 +27,7 @@ export default function AIChat() {
   const [messages, setMessages] = useState<Message[]>([
     { 
       role: "assistant", 
-      content: "Salve, sono KYRIA. Chiedimi andamenti di prezzo o riepiloghi di sentiment. Sarò brutale e basata solo sui numeri." 
+      content: "Ciao, sono KYR-IA. In cosa ti posso aiutare oggi?" 
     }
   ]);
   const [input, setInput] = useState("");
@@ -185,14 +185,7 @@ export default function AIChat() {
     await sendMessageText(text);
   };
 
-  const handleClear = () => {
-    setMessages([
-      { 
-        role: "assistant", 
-        content: "Reset eseguito. Sono KYRIA. Pronta ad analizzare nuovamente i dati." 
-      }
-    ]);
-  };
+
 
   const parseMessageContent = (content: string) => {
     const chartRegex = /<CHART>([\s\S]*?)<\/CHART>/g;
@@ -324,19 +317,8 @@ export default function AIChat() {
               <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm border border-white/20">
                 <Bot className="w-5 h-5 text-blue-200" />
               </div>
-              <div>
-                <h3 className="font-semibold text-sm leading-none">KYRIA AI</h3>
-                <span className="text-[10px] text-blue-200 font-medium">Analista Quantitativo WineTech</span>
-              </div>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                onClick={handleClear}
-                className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors"
-                title="Svuota chat"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
               <button
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-white/10 text-white/80 hover:text-white transition-colors"
