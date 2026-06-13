@@ -1,11 +1,11 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
 import { 
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartTooltip, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Cell as BarCell
 } from "recharts";
+import { useWine } from "@/context/WineContext";
 import { Star, X, Info, Filter, AlertCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -128,8 +128,8 @@ const CustomWordCloud = ({
 };
 
 const SentimentAnalysis = () => {
-  const searchParams = useSearchParams();
-  const selectedProductId = searchParams.get("id_prodotto") || "";
+  const { selectedWineId } = useWine();
+  const selectedProductId = selectedWineId || "";
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [products, setProducts] = useState<ProductInfo[]>([]);

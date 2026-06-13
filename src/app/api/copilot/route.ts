@@ -96,10 +96,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Chiave API_VINO non configurata" }, { status: 500 });
     }
 
+    // Applica le restrizioni globali al System Prompt del Copilot
+    const finalSystemInstruction = `${systemInstruction} Rispondi SEMPRE E SOLO con testo chiaro, formattato in Markdown o tabelle Markdown. È ASSOLUTAMENTE VIETATA la generazione di qualsiasi codice o markup per grafici (come grafici a barre, grafici a torta/ciambella o qualsiasi altro tipo di grafico). Ti devi basare esclusivamente sui numeri in modo testuale e conciso.`;
+
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
-      systemInstruction: systemInstruction,
+      systemInstruction: finalSystemInstruction,
     });
 
     const promptText = `Dati del prodotto:\n${JSON.stringify(compactData)}`;

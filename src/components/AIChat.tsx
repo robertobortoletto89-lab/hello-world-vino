@@ -8,6 +8,7 @@ import {
 } from "recharts";
 import { MessageSquare, X, Send, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useWine } from "@/context/WineContext";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,6 +24,7 @@ interface ChartPayload {
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6"];
 
 export default function AIChat() {
+  const { selectedWineId, setSelectedWineId, resetTrigger } = useWine();
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     { 
@@ -36,7 +38,6 @@ export default function AIChat() {
   
   // Custom chatbot states
   const [wines, setWines] = useState<Array<{ ID_PRODOTTO: string; NOME_PRODOTTO: string }>>([]);
-  const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [showDropdownFor, setShowDropdownFor] = useState<"anomalie" | "dumping" | "sentiment" | null>(null);
   const pathname = usePathname();
 
@@ -55,25 +56,21 @@ export default function AIChat() {
       .catch(err => console.error("Errore nel caricamento prodotti per chatbot:", err));
   }, []);
 
+  // Resetta la cronologia/memoria della chat al reset dei filtri
+  useEffect(() => {
+    if (resetTrigger > 0) {
+      setMessages([
+        { 
+          role: "assistant", 
+          content: "Ciao, sono KYR-IA. In cosa ti posso aiutare oggi?" 
+        }
+      ]);
+    }
+  }, [resetTrigger]);
 
   // Listen to state modifications from other parts of the app
   useEffect(() => {
     if (isMounted) {
-      setSelectedWineId(sessionStorage.getItem("vinoSelezionato"));
-      
-      const handleStorageChange = () => {
-        setSelectedWineId(sessionStorage.getItem("vinoSelezionato"));
-      };
-      
-      const handleWineChanged = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail) {
-          setSelectedWineId(customEvent.detail);
-        } else {
-          setSelectedWineId(null);
-        }
-      };
-
       const handleExternalPrompt = (e: Event) => {
         const customEvent = e as CustomEvent;
         if (customEvent.detail) {
@@ -86,14 +83,10 @@ export default function AIChat() {
         }
       };
 
-      window.addEventListener("vino-persistito-cambiato", handleWineChanged);
       window.addEventListener("trigger-kyria-prompt", handleExternalPrompt);
-      window.addEventListener("storage", handleStorageChange);
       
       return () => {
-        window.removeEventListener("vino-persistito-cambiato", handleWineChanged);
         window.removeEventListener("trigger-kyria-prompt", handleExternalPrompt);
-        window.removeEventListener("storage", handleStorageChange);
       };
     }
   }, [isMounted]);

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { AlertTriangle, Info, Camera, X } from "lucide-react";
 import PriceBarChart from "./dashboard/PriceBarChart";
+import { useWine } from "@/context/WineContext";
 
 interface ProductInfo {
   ID_PRODOTTO: string;
@@ -29,7 +30,8 @@ interface PriceHistory {
 
 const PriceIntelligence = () => {
   const searchParams = useSearchParams();
-  const selectedProductId = searchParams.get("id_prodotto") || "";
+  const { selectedWineId } = useWine();
+  const selectedProductId = selectedWineId || "";
   
   const defaultInizio = useMemo(() => {
     const d = new Date();

@@ -5,6 +5,7 @@ import { Search, RotateCcw, User, ChevronDown, LogOut, Calendar, X, Check } from
 // import { useSession, signOut } from "next-auth/react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useWine } from "@/context/WineContext";
 
 interface TopBarProps {
   isCollapsed: boolean;
@@ -71,10 +72,11 @@ const TopBar = ({ nomeUtente: nomeUtenteProp }: TopBarProps) => {
   const [wines, setWines] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
+  const { selectedWineId, setSelectedWineId, resetWine } = useWine();
+
   // Stati per i filtri (inizializzati da URL o default)
   const [selectedCantina, setSelectedCantina] = useState(searchParams.get("cantina") || (isAdmin ? "all" : (cantinaVisibile || "all")));
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedWineId, setSelectedWineId] = useState<string | null>(searchParams.get("id_prodotto"));
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -143,47 +145,7 @@ const TopBar = ({ nomeUtente: nomeUtenteProp }: TopBarProps) => {
     }
   }, [isMounted, isAdmin, cantinaVisibile, searchParams]);
 
-  // Carica il vino selezionato persistito se non presente nell'URL
-  useEffect(() => {
-    if (isMounted) {
-      const urlWineId = searchParams.get("id_prodotto");
-      if (urlWineId) {
-        sessionStorage.setItem("vinoSelezionato", urlWineId);
-      } else {
-        const persistedWineId = sessionStorage.getItem("vinoSelezionato");
-        if (persistedWineId && pathname !== "/") {
-          setSelectedWineId(persistedWineId);
-        }
-      }
-    }
-  }, [isMounted, searchParams, pathname]);
-
-  // Aggiorna sessionStorage quando selectedWineId cambia
-  useEffect(() => {
-    if (isMounted) {
-      if (selectedWineId) {
-        sessionStorage.setItem("vinoSelezionato", selectedWineId);
-      } else {
-        sessionStorage.removeItem("vinoSelezionato");
-      }
-    }
-  }, [selectedWineId, isMounted]);
-
-  // Ascolta i cambiamenti del vino selezionato da altri componenti (es. Chatbot)
-  useEffect(() => {
-    if (isMounted) {
-      const handleWineChanged = (e: Event) => {
-        const customEvent = e as CustomEvent;
-        if (customEvent.detail) {
-          setSelectedWineId(customEvent.detail);
-        } else {
-          setSelectedWineId(null);
-        }
-      };
-      window.addEventListener("vino-persistito-cambiato", handleWineChanged);
-      return () => window.removeEventListener("vino-persistito-cambiato", handleWineChanged);
-    }
-  }, [isMounted]);
+  // La sincronizzazione con sessionStorage ed eventi del vino è ora gestita globalmente da WineContext
 
   const allCantine = useMemo(() => {
     return Array.from(new Set(wines.map(w => w.CANTINA))).sort();
@@ -219,9 +181,9 @@ const TopBar = ({ nomeUtente: nomeUtenteProp }: TopBarProps) => {
   const handleResetFilters = () => {
     setSelectedCantina(isAdmin ? "all" : (cantinaVisibile || "all"));
     setSearchQuery("");
-    setSelectedWineId(null);
     setStartDate("");
     setEndDate("");
+    resetWine();
   };
 
   const handleSelectAllDates = () => {
