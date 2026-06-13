@@ -58,6 +58,7 @@ interface SentimentElaboratoRow {
 
 export async function POST(req: NextRequest) {
   try {
+    // A. Controllo autorizzazione
     const session = await getServerSession(authOptions);
     let user = session?.user as SessionUser | undefined;
 
@@ -87,7 +88,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Messaggi non validi" }, { status: 400 });
     }
 
-    // 1. CARICAMENTO E PARSING DEI DATI CSV (SSOT)
+    // 1. CARICAMENTO E PARSING DEI DATI CSV
     const dbPath = path.join(process.cwd(), "public", "data", "database_vini.csv");
     const storicoPath = path.join(process.cwd(), "public", "data", "storico_prezzi.csv");
     const sentimentPath = path.join(process.cwd(), "public", "data", "sentiment_vini_elaborato.csv");
@@ -123,19 +124,147 @@ export async function POST(req: NextRequest) {
     });
     const sentimentData = sentimentParsed.data;
 
-    // 2. FILTRAGGIO IN BASE AI PERMESSI (RUOLO/CANTINA)
+    // 2. LOGICA DI PRE-FILTRAGGIO INTELLIGENTE IN JAVASCRIPT
+    const allCantine = Array.from(new Set(dbData.map(r => r.CANTINA).filter(Boolean))) as string[];
+    const allVini = dbData.map(r => ({
+      id: r.ID_PRODOTTO || "",
+      nome: r.NOME_PRODOTTO || "",
+      cantina: r.CANTINA || ""
+    })).filter(v => v.nome || v.id);
+
+    let detectedCantina: string | null = null;
+    let detectedWineId: string | null = null;
+    let detectedWineName: string | null = null;
+
+    // A. Filtro fisso basato sulla visibilità dell'utente (se non è Admin)
+    if (!isAdmin && cantinaVisibile && cantinaVisibile !== "ALL") {
+      detectedCantina = cantinaVisibile;
+    }
+
+    // B. Selezionato esplicitamente dalla dashboard
+    if (selectedWineId) {
+      detectedWineId = selectedWineId;
+      const matched = allVini.find(v => v.id === selectedWineId);
+      if (matched) {
+        detectedWineName = matched.nome;
+        if (!detectedCantina) detectedCantina = matched.cantina;
+      }
+    }
+
+    // C. Analisi dei messaggi per menzioni
+    let textToScan = "";
+    messages.forEach((msg: ChatMessage) => {
+      if (msg.role === "user") {
+        textToScan += " " + (msg.content || "");
+      }
+    });
+    textToScan = textToScan.toLowerCase();
+
+    // Matching per Cantina (se non ancora bloccato dal ruolo)
+    if (!detectedCantina) {
+      for (const c of allCantine) {
+        if (textToScan.includes(c.toLowerCase())) {
+          detectedCantina = c;
+          break;
+        }
+      }
+    }
+
+    // Matching per Vino (se non ancora bloccato dal selettore)
+    if (!detectedWineId) {
+      for (const v of allVini) {
+        // Se l'utente non è admin, controlliamo che il vino appartenga alla sua cantina visibile
+        if (detectedCantina && v.cantina.toLowerCase() !== detectedCantina.toLowerCase()) {
+          continue;
+        }
+        if (
+          (v.id && textToScan.includes(v.id.toLowerCase())) ||
+          (v.nome && textToScan.includes(v.nome.toLowerCase()))
+        ) {
+          detectedWineId = v.id;
+          detectedWineName = v.nome;
+          if (!detectedCantina) detectedCantina = v.cantina;
+          break;
+        }
+      }
+    }
+
+    // D. Applica i filtri estratti o fallbacks
     let filteredDb = dbData;
     let filteredStorico = storicoData;
     let filteredSentiment = sentimentData;
+    let isFilteredByEntity = false;
 
-    if (!isAdmin && cantinaVisibile && cantinaVisibile !== "ALL") {
-      const filterCantina = cantinaVisibile.trim().toLowerCase();
-      filteredDb = dbData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
-      filteredStorico = storicoData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
-      filteredSentiment = sentimentData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
+    if (detectedWineId || detectedWineName) {
+      isFilteredByEntity = true;
+      const wId = detectedWineId ? detectedWineId.toLowerCase() : "";
+      const wName = detectedWineName ? detectedWineName.toLowerCase() : "";
+
+      filteredDb = dbData.filter(r => 
+        (r.ID_PRODOTTO && r.ID_PRODOTTO.toLowerCase() === wId) || 
+        (r.NOME_PRODOTTO && r.NOME_PRODOTTO.toLowerCase() === wName)
+      );
+      filteredStorico = storicoData.filter(r => 
+        (r.ID_PRODOTTO && r.ID_PRODOTTO.toLowerCase() === wId) || 
+        (r.NOME_PRODOTTO && r.NOME_PRODOTTO.toLowerCase() === wName)
+      );
+      filteredSentiment = sentimentData.filter(r => 
+        (r.ID_PRODOTTO && r.ID_PRODOTTO.toLowerCase() === wId) || 
+        (r.NOME_PRODOTTO && r.NOME_PRODOTTO.toLowerCase() === wName)
+      );
+    } else if (detectedCantina) {
+      isFilteredByEntity = true;
+      const cantinaLower = detectedCantina.toLowerCase();
+      filteredDb = dbData.filter(r => String(r.CANTINA || "").toLowerCase() === cantinaLower);
+      filteredStorico = storicoData.filter(r => String(r.CANTINA || "").toLowerCase() === cantinaLower);
+      filteredSentiment = sentimentData.filter(r => String(r.CANTINA || "").toLowerCase() === cantinaLower);
+    } else {
+      // FALLBACK: Nessun filtro specifico cantina/vino rilevato -> Taglio a ultimi 7 giorni o max 50 righe
+      const parseItalianDate = (dateStr: string) => {
+        if (!dateStr) return 0;
+        const parts = dateStr.split(" ")[0].split("/");
+        if (parts.length !== 3) return 0;
+        return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
+      };
+
+      // Trova data più recente storico
+      let maxStoricoTime = 0;
+      storicoData.forEach((row) => {
+        const t = parseItalianDate(row.DATA_ESTRAZIONE || "");
+        if (t > maxStoricoTime) maxStoricoTime = t;
+      });
+
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const cutoffTime = maxStoricoTime > 0 ? maxStoricoTime - sevenDaysMs : 0;
+
+      filteredStorico = storicoData.filter((row) => {
+        const t = parseItalianDate(row.DATA_ESTRAZIONE || "");
+        return t >= cutoffTime;
+      });
+      filteredStorico = filteredStorico
+        .sort((a, b) => parseItalianDate(b.DATA_ESTRAZIONE || "") - parseItalianDate(a.DATA_ESTRAZIONE || ""))
+        .slice(0, 50);
+
+      // Trova data più recente sentiment
+      let maxSentimentTime = 0;
+      sentimentData.forEach((row) => {
+        const t = parseItalianDate(row.DATA_COMMENTO || row.DATA || "");
+        if (t > maxSentimentTime) maxSentimentTime = t;
+      });
+      const sentimentCutoff = maxSentimentTime > 0 ? maxSentimentTime - sevenDaysMs : 0;
+
+      filteredSentiment = sentimentData.filter((row) => {
+        const t = parseItalianDate(row.DATA_COMMENTO || row.DATA || "");
+        return t >= sentimentCutoff;
+      });
+      filteredSentiment = filteredSentiment
+        .sort((a, b) => parseItalianDate(b.DATA_COMMENTO || b.DATA || "") - parseItalianDate(a.DATA_COMMENTO || a.DATA || ""))
+        .slice(0, 50);
+
+      filteredDb = dbData.slice(0, 50);
     }
 
-    // Creazione dei dataset condensati da passare nel System Prompt
+    // 3. GENERAZIONE DEL DATASET IN FORMATO CSV COMPATTO
     const dbRows = filteredDb.map((row) => ({
       CANTINA: row.CANTINA || "",
       ID_PRODOTTO: row.ID_PRODOTTO || "",
@@ -170,7 +299,7 @@ export async function POST(req: NextRequest) {
     const storicoCsv = Papa.unparse(storicoRows, { delimiter: ";" });
     const sentimentCsv = Papa.unparse(sentimentRows, { delimiter: ";" });
 
-    // 3. SYSTEM PROMPT CON REGOLE FERREE
+    // 4. SYSTEM PROMPT CON INIEZIONE SICURA E REGOLE FERREE
     let systemInstruction = `Sei l'Assistente Copilot (KYRIA) della piattaforma WineTech. Rispondi in italiano.
 Segui SCRUPOLOSAMENTE le seguenti regole ferree:
 1. Rispondi in Markdown o tabelle Markdown. È ASSOLUTAMENTE VIETATA la generazione di codice (Javascript, React, Recharts, HTML) per grafici o componenti visuali. Se devi mostrare andamenti o confronti, puoi includere il payload dei dati racchiuso ESATTAMENTE tra i tag <CHART> e </CHART> con la seguente struttura JSON: {"chart_type": "bar" | "line" | "pie", "title": "Titolo", "data": [{"name": "Etichetta", "value": Numero}]}. Non generare tag HTML generici, componenti React o codice di altro tipo.
@@ -178,15 +307,14 @@ Segui SCRUPOLOSAMENTE le seguenti regole ferree:
 3. Per calcolare il 'Sottocosto' o 'Prezzo sotto base', DEVI confrontare il 'PREZZO_RILEVATO' o 'PREZZO_SCONTATO' (usa il prezzo scontato se presente e maggiore di 0) con il 'PREZZO_BASE' dell'anagrafica, oppure controllare se la colonna 'TRIGGER_REASON' è 'SOTTO_PREZZO'. Non inventare colonne o nomi di colonne diversi da quelli reali.
 4. Se l'utente chiede il 'Sentiment' di uno specifico vino, cerca quel nome o ID nel dataset del sentiment fornito e fornisci le metriche (es. polarità, rating originale, star rating, e parole chiave) associate a quella specifica etichetta.
 5. Se l'utente specifica una Cantina, tutte le risposte successive DEVONO essere filtrate per quella Cantina, a meno che non venga richiesto un reset.
-`;
 
-    if (selectedWineId) {
-      const wineObj = dbData.find((w) => w.ID_PRODOTTO === selectedWineId);
-      const wineName = wineObj?.NOME_PRODOTTO || selectedWineId;
-      systemInstruction += `\nATTENZIONE: Attualmente l'utente sta filtrando la dashboard per il vino "${wineName}" (ID: ${selectedWineId}). Concentra l'analisi iniziale su questa specifica etichetta, pur potendo rispondere su altri prodotti della stessa cantina si richiesto.`;
-    }
+AVVERTENZA CONTESTO DATI: Stai vedendo un ESTRATTO FILTRATO e ridotto del database complessivo. Questo filtro è stato calcolato lato server per ottimizzare i token ed evitare congestione di memoria.
+Dati filtrati correnti:
+${isFilteredByEntity 
+  ? `- Filtrato per entità rilevata: ${detectedCantina || ""} ${detectedWineName || ""}` 
+  : `- Nessun filtro specifico rilevato. Viene mostrato un estratto degli ultimi 7 giorni (max 50 righe per dataset)`}
 
-    systemInstruction += `\n\n=== DATI INIETTATI DAI FILE CSV ===
+=== ESTRATTO DATI INIETTATO DAI FILE CSV ===
 --- ANAGRAFICA VINI (database_vini.csv) ---
 ${dbCsv}
 
@@ -198,7 +326,13 @@ ${sentimentCsv}
 ================
 `;
 
-    // 4. PREPARAZIONE DELLA CRONOLOGIA DEI MESSAGGI
+    if (selectedWineId) {
+      const wineObj = dbData.find((w) => w.ID_PRODOTTO === selectedWineId);
+      const wineName = wineObj?.NOME_PRODOTTO || selectedWineId;
+      systemInstruction += `\nATTENZIONE: Attualmente l'utente sta filtrando la dashboard per il vino "${wineName}" (ID: ${selectedWineId}). Concentra l'analisi iniziale su questa specifica etichetta, pur potendo rispondere su altri prodotti della stessa cantina si richiesto.`;
+    }
+
+    // 5. PREPARAZIONE DELLA CRONOLOGIA DEI MESSAGGI
     const history = messages.slice(0, -1) as ChatMessage[];
     const lastMessage = (messages[messages.length - 1] as ChatMessage | undefined)?.content || "";
 

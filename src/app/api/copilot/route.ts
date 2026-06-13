@@ -51,7 +51,41 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { promptId, vinoSelezionato, cantinaVisibile, messages } = body;
 
-    // 1. CARICAMENTO E PARSING DEI DATI CSV (TUTTI E TRE I FILE CONTESTUALMENTE)
+    // 1. COSTRUZIONE MEMORIA CONVERSAZIONALE E PREPARAZIONE TESTO
+    let userPrompt = "";
+    if (promptId) {
+      const pId = Number(promptId);
+      const wineName = vinoSelezionato || "tutti i vini";
+      const cantinaName = cantinaVisibile || "tutte le cantine";
+      if (pId === 1) {
+        userPrompt = `Calcola stockout per il vino ${wineName} nella cantina ${cantinaName}`;
+      } else if (pId === 2) {
+        userPrompt = `Analizza dumping di prezzo per il vino ${wineName} nella cantina ${cantinaName}`;
+      } else if (pId === 3) {
+        userPrompt = `Analizza sentiment per il vino ${wineName} nella cantina ${cantinaName}`;
+      } else if (pId === 4) {
+        userPrompt = `Estrai parole chiave sentiment per il vino ${wineName} nella cantina ${cantinaName}`;
+      } else {
+        userPrompt = `Analizza vino ${wineName} nella cantina ${cantinaName}`;
+      }
+    }
+
+    const messagesList = (messages && Array.isArray(messages) && messages.length > 0)
+      ? messages
+      : [{ role: "user", content: userPrompt || "Ciao, come posso aiutarti?" }];
+
+    const history = messagesList.slice(0, -1) as ChatMessage[];
+    const lastMessage = messagesList[messagesList.length - 1]?.content || userPrompt || "Ciao, come posso aiutarti?";
+
+    const safeHistory = history.map((msg) => ({
+      role: msg.role === 'bot' || msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user',
+      parts: [{ text: msg.content || '' }]
+    }));
+    while (safeHistory.length > 0 && safeHistory[0].role === 'model') {
+      safeHistory.shift();
+    }
+
+    // 2. CARICAMENTO E PARSING DEI DATI CSV
     const dbPath = path.join(process.cwd(), "public", "data", "database_vini.csv");
     const storicoPath = path.join(process.cwd(), "public", "data", "storico_prezzi.csv");
     const sentimentPath = path.join(process.cwd(), "public", "data", "sentiment_vini_elaborato.csv");
@@ -87,22 +121,144 @@ export async function POST(req: NextRequest) {
     });
     const sentimentData = sentimentParsed.data;
 
-    // Filtro per cantina visibile (se specificata e diversa da ALL)
-    const filterCantina = (cantinaVisibile && cantinaVisibile !== "ALL" && cantinaVisibile !== "ALL_CANTINE") 
-      ? String(cantinaVisibile).trim().toLowerCase() 
-      : null;
+    // 3. LOGICA DI PRE-FILTRAGGIO INTELLIGENTE IN JAVASCRIPT
+    const allCantine = Array.from(new Set(dbData.map(r => r.CANTINA).filter(Boolean))) as string[];
+    const allVini = dbData.map(r => ({
+      id: r.ID_PRODOTTO || "",
+      nome: r.NOME_PRODOTTO || "",
+      cantina: r.CANTINA || ""
+    })).filter(v => v.nome || v.id);
 
+    let detectedCantina: string | null = null;
+    let detectedWineId: string | null = null;
+    let detectedWineName: string | null = null;
+
+    // A. Controlla parametri espliciti della request
+    if (cantinaVisibile && cantinaVisibile !== "ALL" && cantinaVisibile !== "ALL_CANTINE") {
+      detectedCantina = cantinaVisibile;
+    }
+    if (vinoSelezionato) {
+      detectedWineName = vinoSelezionato;
+      const matched = allVini.find(v => 
+        v.nome.toLowerCase() === vinoSelezionato.toLowerCase() || 
+        v.id.toLowerCase() === vinoSelezionato.toLowerCase()
+      );
+      if (matched) {
+        detectedWineId = matched.id;
+        if (!detectedCantina) detectedCantina = matched.cantina;
+      }
+    }
+
+    // B. Analizza l'intero storico dei messaggi dell'utente per trovare menzioni
+    let textToScan = "";
+    messagesList.forEach((msg) => {
+      if (msg.role === "user") {
+        textToScan += " " + (msg.content || "");
+      }
+    });
+    textToScan = textToScan.toLowerCase();
+
+    // Cerca match Cantina
+    for (const c of allCantine) {
+      if (textToScan.includes(c.toLowerCase())) {
+        detectedCantina = c;
+        break;
+      }
+    }
+
+    // Cerca match Vino
+    for (const v of allVini) {
+      if (
+        (v.id && textToScan.includes(v.id.toLowerCase())) ||
+        (v.nome && textToScan.includes(v.nome.toLowerCase()))
+      ) {
+        detectedWineId = v.id;
+        detectedWineName = v.nome;
+        if (!detectedCantina) detectedCantina = v.cantina;
+        break;
+      }
+    }
+
+    // C. Applica filtri o fallbacks temporali/quantitativi
     let filteredDb = dbData;
     let filteredStorico = storicoData;
     let filteredSentiment = sentimentData;
+    let isFilteredByEntity = false;
 
-    if (filterCantina) {
-      filteredDb = dbData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
-      filteredStorico = storicoData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
-      filteredSentiment = sentimentData.filter((r) => String(r.CANTINA || "").trim().toLowerCase() === filterCantina);
+    if (detectedWineId || detectedWineName) {
+      isFilteredByEntity = true;
+      const wId = detectedWineId ? detectedWineId.toLowerCase() : "";
+      const wName = detectedWineName ? detectedWineName.toLowerCase() : "";
+      
+      filteredDb = dbData.filter(r => 
+        (r.ID_PRODOTTO && r.ID_PRODOTTO.toLowerCase() === wId) || 
+        (r.NOME_PRODOTTO && r.NOME_PRODOTTO.toLowerCase() === wName)
+      );
+      filteredStorico = storicoData.filter(r => 
+        (r.ID_PRODOTTO && r.ID_PRODOTTO.toLowerCase() === wId) || 
+        (r.NOME_PRODOTTO && r.NOME_PRODOTTO.toLowerCase() === wName)
+      );
+      filteredSentiment = sentimentData.filter(r => 
+        (r.ID_PRODOTTO && r.ID_PRODOTTO.toLowerCase() === wId) || 
+        (r.NOME_PRODOTTO && r.NOME_PRODOTTO.toLowerCase() === wName)
+      );
+    } else if (detectedCantina) {
+      isFilteredByEntity = true;
+      const cantinaLower = detectedCantina.toLowerCase();
+      filteredDb = dbData.filter(r => String(r.CANTINA || "").toLowerCase() === cantinaLower);
+      filteredStorico = storicoData.filter(r => String(r.CANTINA || "").toLowerCase() === cantinaLower);
+      filteredSentiment = sentimentData.filter(r => String(r.CANTINA || "").toLowerCase() === cantinaLower);
+    } else {
+      // D. FALLBACK: Nessun filtro specifico cantina/vino rilevato -> Taglio a ultimi 7 giorni o max 50 righe
+      const parseItalianDate = (dateStr: string) => {
+        if (!dateStr) return 0;
+        const parts = dateStr.split(" ")[0].split("/");
+        if (parts.length !== 3) return 0;
+        return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0])).getTime();
+      };
+
+      // Trova la data più recente nello storico
+      let maxStoricoTime = 0;
+      storicoData.forEach((row) => {
+        const t = parseItalianDate(row.DATA_ESTRAZIONE || "");
+        if (t > maxStoricoTime) maxStoricoTime = t;
+      });
+
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const cutoffTime = maxStoricoTime > 0 ? maxStoricoTime - sevenDaysMs : 0;
+
+      // Filtro storico per ultimi 7 giorni e taglio a max 50
+      filteredStorico = storicoData.filter((row) => {
+        const t = parseItalianDate(row.DATA_ESTRAZIONE || "");
+        return t >= cutoffTime;
+      });
+      // Ordina storico per data decrescente e prendi max 50
+      filteredStorico = filteredStorico
+        .sort((a, b) => parseItalianDate(b.DATA_ESTRAZIONE || "") - parseItalianDate(a.DATA_ESTRAZIONE || ""))
+        .slice(0, 50);
+
+      // Trova la data più recente nel sentiment
+      let maxSentimentTime = 0;
+      sentimentData.forEach((row) => {
+        const t = parseItalianDate(row.DATA_COMMENTO || row.DATA || "");
+        if (t > maxSentimentTime) maxSentimentTime = t;
+      });
+      const sentimentCutoff = maxSentimentTime > 0 ? maxSentimentTime - sevenDaysMs : 0;
+
+      // Filtro sentiment per ultimi 7 giorni e taglio a max 50
+      filteredSentiment = sentimentData.filter((row) => {
+        const t = parseItalianDate(row.DATA_COMMENTO || row.DATA || "");
+        return t >= sentimentCutoff;
+      });
+      filteredSentiment = filteredSentiment
+        .sort((a, b) => parseItalianDate(b.DATA_COMMENTO || b.DATA || "") - parseItalianDate(a.DATA_COMMENTO || a.DATA || ""))
+        .slice(0, 50);
+
+      // Limita il database anagrafica a max 50 righe per sicurezza
+      filteredDb = dbData.slice(0, 50);
     }
 
-    // Creazione dei dataset condensati da passare nel System Prompt
+    // 4. GENERAZIONE DEL DATASET IN FORMATO CSV COMPATTO
     const dbRows = filteredDb.map((row) => ({
       CANTINA: row.CANTINA || "",
       ID_PRODOTTO: row.ID_PRODOTTO || "",
@@ -137,41 +293,7 @@ export async function POST(req: NextRequest) {
     const storicoCsv = Papa.unparse(storicoRows, { delimiter: ";" });
     const sentimentCsv = Papa.unparse(sentimentRows, { delimiter: ";" });
 
-    // 2. COSTRUZIONE MEMORIA CONVERSAZIONALE
-    let userPrompt = "";
-    if (promptId) {
-      const pId = Number(promptId);
-      const wineName = vinoSelezionato || "tutti i vini";
-      const cantinaName = cantinaVisibile || "tutte le cantine";
-      if (pId === 1) {
-        userPrompt = `Calcola stockout per il vino ${wineName} nella cantina ${cantinaName}`;
-      } else if (pId === 2) {
-        userPrompt = `Analizza dumping di prezzo per il vino ${wineName} nella cantina ${cantinaName}`;
-      } else if (pId === 3) {
-        userPrompt = `Analizza sentiment per il vino ${wineName} nella cantina ${cantinaName}`;
-      } else if (pId === 4) {
-        userPrompt = `Estrai parole chiave sentiment per il vino ${wineName} nella cantina ${cantinaName}`;
-      } else {
-        userPrompt = `Analizza vino ${wineName} nella cantina ${cantinaName}`;
-      }
-    }
-
-    const messagesList = (messages && Array.isArray(messages) && messages.length > 0)
-      ? messages
-      : [{ role: "user", content: userPrompt || "Ciao, come posso aiutarti?" }];
-
-    const history = messagesList.slice(0, -1) as ChatMessage[];
-    const lastMessage = messagesList[messagesList.length - 1]?.content || userPrompt || "Ciao, come posso aiutarti?";
-
-    const safeHistory = history.map((msg) => ({
-      role: msg.role === 'bot' || msg.role === 'model' || msg.role === 'assistant' ? 'model' : 'user',
-      parts: [{ text: msg.content || '' }]
-    }));
-    while (safeHistory.length > 0 && safeHistory[0].role === 'model') {
-      safeHistory.shift();
-    }
-
-    // 3. SYSTEM PROMPT CON REGOLE FERREE
+    // 5. SYSTEM PROMPT CON INIEZIONE SICURA E REGOLE FERREE
     let systemInstruction = `Sei l'Assistente Copilot della piattaforma WineTech. Rispondi in italiano.
 Segui SCRUPOLOSAMENTE le seguenti regole ferree:
 1. Rispondi SEMPRE E SOLO con testo chiaro, formattato in Markdown o tabelle Markdown. È ASSOLUTAMENTE VIETATA la generazione di qualsiasi codice per grafici Recharts (come grafici a barre o a ciambella o altri componenti visuali). Ti devi basare esclusivamente sui numeri in modo testuale, chiaro e conciso. Non generare tag HTML, componenti React, o grafici di alcun tipo.
@@ -180,16 +302,20 @@ Segui SCRUPOLOSAMENTE le seguenti regole ferree:
 4. Se l'utente chiede il 'Sentiment' di uno specifico vino, DEVI cercare quel nome o ID nel dataset del sentiment fornito e fornire le metriche (es. conteggio recensioni per polarità, star rating, e parole chiave) associate a quella specifica etichetta.
 5. Se l'utente specifica una Cantina, tutte le risposte successive DEVONO essere filtrate per quella Cantina, a meno che non venga richiesto un reset.
 
-Di seguito sono riportati i dati completi estratti dai file 'database_vini.csv', 'storico_prezzi.csv' e 'sentiment_vini_elaborato.csv' da utilizzare per rispondere ai quesiti:
+AVVERTENZA CONTESTO DATI: Stai vedendo un ESTRATTO FILTRATO e ridotto del database complessivo. Questo filtro è stato calcolato lato server per ottimizzare i token ed evitare congestione di memoria. 
+Dati filtrati correnti:
+${isFilteredByEntity 
+  ? `- Filtrato per entità rilevata: ${detectedCantina || ""} ${detectedWineName || ""}` 
+  : `- Nessun filtro specifico rilevato. Viene mostrato un estratto degli ultimi 7 giorni (max 50 righe per dataset)`}
 
-=== DATI INIETTATI DAI FILE CSV ===
+=== ESTRATTO DATI INIETTATO DAI FILE CSV ===
 --- ANAGRAFICA VINI (database_vini.csv) ---
 ${dbCsv}
 
 --- STORICO PREZZI (storico_prezzi.csv) ---
 ${storicoCsv}
 
---- SENTIMENT ED ELABORAZIONE RECENSIONI (sentiment_vini_elaborato.csv) ---
+--- SENTIMENT ED ELABORAZIONE RECENSIONE (sentiment_vini_elaborato.csv) ---
 ${sentimentCsv}
 ================
 `;
